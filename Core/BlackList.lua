@@ -311,6 +311,96 @@ function BlackList:ScanBlacklistedTargetingPlayer()
 	end
 end
 
+--- Resolve name + realm from a nameplate unit (cross-realm aware).
+local function getUnitNameRealmForList(unitToken)
+	if not unitToken then
+		return nil, ""
+	end
+	local name, realm
+	if UnitFullName then
+		local ok, n, r = pcall(UnitFullName, unitToken)
+		if ok and n and strtrim(tostring(n)) ~= "" then
+			name, realm = n, r
+		end
+	end
+	if not name or strtrim(tostring(name)) == "" then
+		local ok, n, r = pcall(UnitName, unitToken)
+		if ok and n and strtrim(tostring(n)) ~= "" then
+			name, realm = n, r
+		end
+	end
+	if not name or strtrim(tostring(name)) == "" then
+		return nil, ""
+	end
+	return name, strtrim(tostring(realm or ""))
+end
+
+--- Warn/sound when a blacklisted player's nameplate appears. Caller must ensure UnitExists(unitToken).
+function BlackList:TryNameplateProximityWarn(unitToken)
+	if not unitToken or not UnitExists(unitToken) then
+		return
+	end
+	if self.MaybeRefreshBlacklistedUnit then
+		self:MaybeRefreshBlacklistedUnit(unitToken)
+	end
+	if not UnitIsPlayer(unitToken) or UnitIsUnit(unitToken, "player") then
+		return
+	end
+	local name, realm = getUnitNameRealmForList(unitToken)
+	if not name then
+		return
+	end
+	local idx = self.FindEntryIndexForUnit and self:FindEntryIndexForUnit(name, realm) or 0
+	if idx <= 0 then
+		idx = self:GetIndexByName(name)
+	end
+	if idx <= 0 then
+		return
+	end
+	if self:ShouldMuteWorldProximityAlerts() or not self:GetOption("warnNameplate", true) then
+		return
+	end
+	local player = self:GetPlayerByIndex(idx)
+	if not player then
+		return
+	end
+	local warnKey = name .. "|" .. strtrim(tostring(realm or ""))
+	local alreadywarned = false
+	local now = GetTime()
+	for key, timepassed in pairs(Already_Warned_For["NAMEPLATE"]) do
+		if key == warnKey and now < timepassed + 20 then
+			alreadywarned = true
+			break
+		end
+	end
+	if alreadywarned then
+		return
+	end
+	Already_Warned_For["NAMEPLATE"][warnKey] = now
+	BlackList_PlaySound("nameplate")
+	local nearTail = L["MSG_TAIL_NAMEPLATE"] or L["IS_BLACKLISTED"]
+	self:AddMessage(self:FormatChatTagLine(player, nearTail, "proximity"), "styled")
+end
+
+--- Blizzard may fire NAME_PLATE_UNIT_ADDED before the unit is queryable; defer + short retry.
+function BlackList:ScheduleNameplateProximityCheck(unitToken)
+	if not unitToken then
+		return
+	end
+	local function run()
+		if not unitToken or not UnitExists(unitToken) then
+			return
+		end
+		self:TryNameplateProximityWarn(unitToken)
+	end
+	if C_Timer and C_Timer.After then
+		C_Timer.After(0, run)
+		C_Timer.After(0.05, run)
+	else
+		run()
+	end
+end
+
 local Orig_ChatFrame_OnEvent;
 local Orig_InviteByName;
 
@@ -578,38 +668,8 @@ function BlackList:HandleEvent(event, ...)
 		end
 	elseif (event == "NAME_PLATE_UNIT_ADDED") then
 		local unitToken = args[1]
-		if (not unitToken or not UnitExists(unitToken)) then
-			return
-		end
-		if BlackList.MaybeRefreshBlacklistedUnit then
-			BlackList:MaybeRefreshBlacklistedUnit(unitToken)
-		end
-		if (not UnitIsPlayer(unitToken) or UnitIsUnit(unitToken, "player")) then
-			return
-		end
-		local name = UnitName(unitToken)
-		if (not name or BlackList:GetIndexByName(name) <= 0) then
-			return
-		end
-		if (BlackList:ShouldMuteWorldProximityAlerts() or not BlackList:GetOption("warnNameplate", true)) then
-			return
-		end
-		local player = BlackList:GetPlayerByIndex(BlackList:GetIndexByName(name))
-		if (not player) then
-			return
-		end
-		local alreadywarned = false
-		for warnedname, timepassed in pairs(Already_Warned_For["NAMEPLATE"]) do
-			if ((name == warnedname) and (GetTime() < timepassed + 20)) then
-				alreadywarned = true
-				break
-			end
-		end
-		if (not alreadywarned) then
-			Already_Warned_For["NAMEPLATE"][name] = GetTime()
-			BlackList_PlaySound("nameplate")
-			local nearTail = L["MSG_TAIL_NAMEPLATE"] or L["IS_BLACKLISTED"]
-			BlackList:AddMessage(BlackList:FormatChatTagLine(player, nearTail, "proximity"), "styled")
+		if unitToken and BlackList.ScheduleNameplateProximityCheck then
+			BlackList:ScheduleNameplateProximityCheck(unitToken)
 		end
 	elseif (event == "PARTY_INVITE_REQUEST") then
 		-- search for player name
