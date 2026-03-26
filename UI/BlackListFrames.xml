@@ -5,6 +5,7 @@
 	<Script file="Core\BlackListFormat.lua" />
 	<Script file="Modules\BlackListSounds.lua" />
 	<Script file="Core\BlackList.lua" />
+	<Script file="Modules\BlackListContextMenu.lua" />
 	<Script file="UI\BlackListUI_Shared.lua" />
 	<Script file="UI\BlackListUI_Chrome.lua" />
 	<Script file="UI\BlackListUI_OptionsDialog.lua" />

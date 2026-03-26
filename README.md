@@ -1,6 +1,6 @@
 # Toxic BlackList
 
-[![Version](https://img.shields.io/badge/Version-1.0.1-informational?style=for-the-badge)](Toxic_BlackList.toc)
+[![Version](https://img.shields.io/badge/Version-1.0.2-informational?style=for-the-badge)](Toxic_BlackList.toc)
 [![WoW](https://img.shields.io/badge/WoW-12.0.1%20(Midnight)-orange?style=for-the-badge)](https://worldofwarcraft.blizzard.com/)
 [![Lua](https://img.shields.io/badge/Lua-5.x-blue?style=for-the-badge)](https://www.lua.org/)
 
@@ -40,8 +40,8 @@ Toxic BlackList is designed for ease of use with multiple access points.
 
 ### Main Window
 
-Open the main window by typing `/tbl`, or by right-clicking the minimap or floating button. From here, you can:
-- View all players on the blacklist for the current realm.
+Open the main window by typing `/tbl`, or by **left-clicking** the minimap or floating button. From here, you can:
+- View all players on your **account-wide** blacklist.
 - **Add** a player by name ( `+` button) or from your current **target** ( `aim` button).
 - **Remove** (`-`) or **Edit** (`✎`) the selected player.
 - Open the **Options** panel (gear icon).
@@ -51,7 +51,7 @@ Double-clicking a player or selecting them and pressing `✎` opens the **Edit W
 
 ### Options Panel
 
-The options panel (accessible via the gear icon, or by left-clicking the minimap/floating button) lets you customize every aspect of the addon:
+The options panel (accessible via the gear icon, or by **right-clicking** the minimap/floating button) lets you customize every aspect of the addon:
 - **General**: Enable or disable warnings for target, mouseover, nameplates, and group joins. Configure whisper and invite blocking.
 - **Sound**: Choose custom warning sounds for different events.
 - **On-screen Button**: Enable, resize, and reset the position of the floating button.
@@ -59,11 +59,11 @@ The options panel (accessible via the gear icon, or by left-clicking the minimap
 ### Minimap & Floating Buttons
 
 - **Minimap Button**: A handy icon on your minimap.
-  - **Left-click**: Open Options.
-  - **Right-click**: Open the Toxic BlackList window.
+  - **Left-click**: Open the Toxic BlackList window.
+  - **Right-click**: Open Options.
 - **Floating Button**: A movable button you can place anywhere on the screen.
-  - **Left-click**: Open Options.
-  - **Right-click**: Open the Toxic BlackList window.
+  - **Left-click**: Open the Toxic BlackList window.
+  - **Right-click**: Open Options.
   - **Ctrl+Left-click**: Add/edit your current target.
   - **Ctrl+Right-click**: Quickly add your current target.
   - **Alt+Drag**: Move the button.
@@ -72,15 +72,25 @@ The options panel (accessible via the gear icon, or by left-clicking the minimap
 
 ## ⌨️ Chat Commands
 
-The main list commands can be used with `/blacklist`, `/tbl`, or `/blist`.
+The addon registers three slash commands:
 
-| Command | Alias | Description |
-| :--- | :--- | :--- |
-| `/tbl` | | Toggles the main Toxic BlackList window. |
-| `/tbl <PlayerName> [reason]` | | Adds a player to the list, optionally with a reason. |
-| `/blt [reason]` | `/blacklisttarget` | Adds your current target to the list, optionally with a reason. |
-| `/removebl <PlayerName>` | `/removeblacklist` | Removes a player from the list. |
-| `/removebl` | | Removes your current target from the list. |
+| Command | Description |
+| :--- | :--- |
+| `/tbl` | Opens or toggles the main list window. **Only works with no extra text**; arguments are ignored. |
+| `/tbla` | Opens the **add player** dialog (add by name / reason). |
+| `/tblr` | Removes a player by name. **With no argument**, removes your **current target**. |
+
+Use the **+** (add) and **aim** (add target) buttons in the UI, or the **context menu** on players, to add entries — there is no longer a chat command to add a player by typing their name in the chat box.
+
+---
+
+## 💾 Saved data & upgrades
+
+Your list is stored in WoW’s **`saved variables`** (`BlackListedPlayers`, `BlackListOptions`). **Updates do not wipe that data.** The addon still loads the same account-wide list format as before.
+
+Changes such as **name + realm** matching, **merging** a manual entry when you later add the same player from a target or context menu, and **removing duplicate “unknown realm” rows** only affect **how entries are interpreted and cleaned up at runtime**. They do **not** replace the saved file with an empty list or change the variable names in a way that would discard your existing blacklist.
+
+If you ever copy the addon to a new PC, keep your `WTF\Account\<account>\SavedVariables\Toxic_BlackList.lua` (or the character-specific copy if you use one) to keep your list.
 
 ---
 

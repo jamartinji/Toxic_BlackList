@@ -19,10 +19,6 @@ BlackListedPlayers = {};
 -- Set to false in-game: /run BlackListDebugLog=false  (stops chat spam)
 BlackListDebugLog = BlackListDebugLog ~= false
 
-local SLASH_TYPE_ADD = 1;
-local SLASH_TYPE_REMOVE = 2;
-local SLASH_TYPE_ADD_TARGET = 3;
-
 function BlackList.Log(msg)
 	if BlackListDebugLog == false then
 		return
@@ -150,10 +146,6 @@ function BlackList:OnLoad()
 	BlackList_RunStep("RegisterSlashCmds", function()
 		self:RegisterSlashCmds()
 	end)
-
-	if FriendsFrameShareListButton then
-		FriendsFrameShareListButton:Disable()
-	end
 
 	BlackList_RunStep("CreateMinimapButton", function()
 		self:CreateMinimapButton()
@@ -319,6 +311,96 @@ function BlackList:ScanBlacklistedTargetingPlayer()
 	end
 end
 
+--- Resolve name + realm from a nameplate unit (cross-realm aware).
+local function getUnitNameRealmForList(unitToken)
+	if not unitToken then
+		return nil, ""
+	end
+	local name, realm
+	if UnitFullName then
+		local ok, n, r = pcall(UnitFullName, unitToken)
+		if ok and n and strtrim(tostring(n)) ~= "" then
+			name, realm = n, r
+		end
+	end
+	if not name or strtrim(tostring(name)) == "" then
+		local ok, n, r = pcall(UnitName, unitToken)
+		if ok and n and strtrim(tostring(n)) ~= "" then
+			name, realm = n, r
+		end
+	end
+	if not name or strtrim(tostring(name)) == "" then
+		return nil, ""
+	end
+	return name, strtrim(tostring(realm or ""))
+end
+
+--- Warn/sound when a blacklisted player's nameplate appears. Caller must ensure UnitExists(unitToken).
+function BlackList:TryNameplateProximityWarn(unitToken)
+	if not unitToken or not UnitExists(unitToken) then
+		return
+	end
+	if self.MaybeRefreshBlacklistedUnit then
+		self:MaybeRefreshBlacklistedUnit(unitToken)
+	end
+	if not UnitIsPlayer(unitToken) or UnitIsUnit(unitToken, "player") then
+		return
+	end
+	local name, realm = getUnitNameRealmForList(unitToken)
+	if not name then
+		return
+	end
+	local idx = self.FindEntryIndexForUnit and self:FindEntryIndexForUnit(name, realm) or 0
+	if idx <= 0 then
+		idx = self:GetIndexByName(name)
+	end
+	if idx <= 0 then
+		return
+	end
+	if self:ShouldMuteWorldProximityAlerts() or not self:GetOption("warnNameplate", true) then
+		return
+	end
+	local player = self:GetPlayerByIndex(idx)
+	if not player then
+		return
+	end
+	local warnKey = name .. "|" .. strtrim(tostring(realm or ""))
+	local alreadywarned = false
+	local now = GetTime()
+	for key, timepassed in pairs(Already_Warned_For["NAMEPLATE"]) do
+		if key == warnKey and now < timepassed + 20 then
+			alreadywarned = true
+			break
+		end
+	end
+	if alreadywarned then
+		return
+	end
+	Already_Warned_For["NAMEPLATE"][warnKey] = now
+	BlackList_PlaySound("nameplate")
+	local nearTail = L["MSG_TAIL_NAMEPLATE"] or L["IS_BLACKLISTED"]
+	self:AddMessage(self:FormatChatTagLine(player, nearTail, "proximity"), "styled")
+end
+
+--- Blizzard may fire NAME_PLATE_UNIT_ADDED before the unit is queryable; defer + short retry.
+function BlackList:ScheduleNameplateProximityCheck(unitToken)
+	if not unitToken then
+		return
+	end
+	local function run()
+		if not unitToken or not UnitExists(unitToken) then
+			return
+		end
+		self:TryNameplateProximityWarn(unitToken)
+	end
+	if C_Timer and C_Timer.After then
+		C_Timer.After(0, run)
+		C_Timer.After(0.05, run)
+	else
+		run()
+	end
+end
+
 local Orig_ChatFrame_OnEvent;
 local Orig_InviteByName;
 
@@ -337,6 +419,32 @@ function BlackList:HookFunctions()
 		InviteByName = BlackList_InviteByName;
 	end
 
+	self:RegisterChatMuteFilters();
+
+end
+
+function BlackList:RegisterChatMuteFilters()
+	if self._chatMuteFiltersRegistered then
+		return
+	end
+	if not ChatFrame_AddMessageEventFilter then
+		return
+	end
+	self._chatMuteFiltersRegistered = true
+	local function filterMuted(_, event, msg, author, ...)
+		if author and BlackList:IsChatMutedAuthor(author) then
+			return true
+		end
+		return false
+	end
+	local events = {
+		"CHAT_MSG_CHANNEL", "CHAT_MSG_SAY", "CHAT_MSG_YELL", "CHAT_MSG_WHISPER",
+		"CHAT_MSG_RAID", "CHAT_MSG_PARTY", "CHAT_MSG_GUILD", "CHAT_MSG_INSTANCE",
+		"CHAT_MSG_PARTY_LEADER", "CHAT_MSG_RAID_LEADER", "CHAT_MSG_RAID_WARNING",
+	}
+	for i = 1, #events do
+		ChatFrame_AddMessageEventFilter(events[i], filterMuted)
+	end
 end
 
 -- Hooked ChatFrame_OnEvent function (like SuperIgnore does)
@@ -346,6 +454,10 @@ function BlackList_ChatFrame_OnEvent(event, ...)
 	if event == "CHAT_MSG_WHISPER" then
 		local args = {...}
 		local name = args[2] -- In Retail, whisper sender name is the 2nd argument
+
+		if name and BlackList:IsChatMutedAuthor(name) then
+			return
+		end
 
 		if (BlackList:GetIndexByName(name) > 0) then
 			local player = BlackList:GetPlayerByIndex(BlackList:GetIndexByName(name));
@@ -408,9 +520,9 @@ end
 -- Registers slash cmds (SlashCmdList debe asignarse antes que SLASH_* en muchos clientes)
 function BlackList:RegisterSlashCmds()
 
-	local function safeHandle(addOrRemove, msg)
+	local function safeHandle(cmd, msg)
 		local ok, err = pcall(function()
-			BlackList:HandleSlashCmd(addOrRemove, msg)
+			BlackList:HandleSlashCmd(cmd, msg)
 		end)
 		if not ok and UIErrorsFrame then
 			UIErrorsFrame:AddMessage("[Toxic BlackList] " .. tostring(err), 1, 0.1, 0.1)
@@ -418,24 +530,20 @@ function BlackList:RegisterSlashCmds()
 	end
 
 	-- Callback receives (msg, chatEditBox) — see ChatFrameEditBox.lua
-	SlashCmdList["BlackList"] = function(msg, _)
-		safeHandle(SLASH_TYPE_ADD, msg)
+	SlashCmdList["TBL"] = function(msg, _)
+		safeHandle("tbl", msg)
 	end
-	SLASH_BlackList1 = "/blacklist"
-	SLASH_BlackList2 = "/tbl"
-	SLASH_BlackList3 = "/blist"
+	SLASH_TBL1 = "/tbl"
 
-	SlashCmdList["BlackListTarget"] = function(msg, _)
-		safeHandle(SLASH_TYPE_ADD_TARGET, msg)
+	SlashCmdList["TBLA"] = function(msg, _)
+		safeHandle("tbla", msg)
 	end
-	SLASH_BlackListTarget1 = "/blt"
-	SLASH_BlackListTarget2 = "/blacklisttarget"
+	SLASH_TBLA1 = "/tbla"
 
-	SlashCmdList["RemoveBlackList"] = function(msg, _)
-		safeHandle(SLASH_TYPE_REMOVE, msg)
+	SlashCmdList["TBLR"] = function(msg, _)
+		safeHandle("tblr", msg)
 	end
-	SLASH_RemoveBlackList1 = "/removeblacklist"
-	SLASH_RemoveBlackList2 = "/removebl"
+	SLASH_TBLR1 = "/tblr"
 
 	-- Retail: slash commands go into hash_SlashCmdList via ImportAllListsToHash (each / in chat refreshes it; we force on register)
 	if ChatFrameUtil and ChatFrameUtil.ImportAllListsToHash then
@@ -443,7 +551,7 @@ function BlackList:RegisterSlashCmds()
 	end
 end
 
--- Handles the slash cmds (param must not be named "type": it shadows Lua's type() and breaks type(args))
+-- Handles /tbl (list), /tbla (add dialog), /tblr (remove).
 function BlackList:HandleSlashCmd(cmdType, args)
 
 	if type(args) ~= "string" then
@@ -452,23 +560,17 @@ function BlackList:HandleSlashCmd(cmdType, args)
 		args = strtrim(args)
 	end
 
-	if (cmdType == SLASH_TYPE_ADD) then
-		if (args == "") then
-			self:ToggleStandaloneWindow()
+	if cmdType == "tbl" then
+		if args ~= "" then
 			return
 		end
-		local name = args
-		local reason = ""
-		local index = string.find(args, " ", 1, true)
-		if (index) then
-			name = string.sub(args, 1, index - 1)
-			reason = string.sub(args, index + 1)
+		self:ToggleStandaloneWindow()
+	elseif cmdType == "tbla" then
+		if self.ShowAddPlayerDialog then
+			self:ShowAddPlayerDialog()
 		end
-		self:AddPlayer(name, reason)
-	elseif (cmdType == SLASH_TYPE_ADD_TARGET) then
-		self:AddPlayer("target", args)
-	elseif (cmdType == SLASH_TYPE_REMOVE) then
-		if (args == "") then
+	elseif cmdType == "tblr" then
+		if args == "" then
 			self:RemovePlayer("target")
 		else
 			self:RemovePlayer(args)
@@ -482,11 +584,14 @@ function BlackList:HandleEvent(event, ...)
 	local args = {...}
 
 	if (event == "VARIABLES_LOADED" or event == "PLAYER_LOGIN") then
-		if (not BlackListedPlayers[GetRealmName()]) then
-			BlackListedPlayers[GetRealmName()] = {};
+		if not BlackListedPlayers then
+			BlackListedPlayers = {};
 		end
 		if (not BlackListOptions) then
 			BlackListOptions = {};
+		end
+		if BlackList.MigrateToAccountWideList then
+			BlackList:MigrateToAccountWideList()
 		end
 		if BlackList.MigrateAllBlacklistedEntries then
 			BlackList:MigrateAllBlacklistedEntries()
@@ -500,6 +605,9 @@ function BlackList:HandleEvent(event, ...)
 		-- If the addon loaded before ChatFrameUtil / slash hash existed
 		if (event == "PLAYER_LOGIN") and ChatFrameUtil and ChatFrameUtil.ImportAllListsToHash then
 			ChatFrameUtil.ImportAllListsToHash();
+		end
+		if (event == "PLAYER_LOGIN") and BlackList.RegisterContextMenu then
+			BlackList:RegisterContextMenu();
 		end
 	elseif (event == "PLAYER_TARGET_CHANGED") then
 		if UnitExists("target") and UnitIsPlayer("target") and BlackList.MaybeRefreshBlacklistedUnit then
@@ -560,38 +668,8 @@ function BlackList:HandleEvent(event, ...)
 		end
 	elseif (event == "NAME_PLATE_UNIT_ADDED") then
 		local unitToken = args[1]
-		if (not unitToken or not UnitExists(unitToken)) then
-			return
-		end
-		if BlackList.MaybeRefreshBlacklistedUnit then
-			BlackList:MaybeRefreshBlacklistedUnit(unitToken)
-		end
-		if (not UnitIsPlayer(unitToken) or UnitIsUnit(unitToken, "player")) then
-			return
-		end
-		local name = UnitName(unitToken)
-		if (not name or BlackList:GetIndexByName(name) <= 0) then
-			return
-		end
-		if (BlackList:ShouldMuteWorldProximityAlerts() or not BlackList:GetOption("warnNameplate", true)) then
-			return
-		end
-		local player = BlackList:GetPlayerByIndex(BlackList:GetIndexByName(name))
-		if (not player) then
-			return
-		end
-		local alreadywarned = false
-		for warnedname, timepassed in pairs(Already_Warned_For["NAMEPLATE"]) do
-			if ((name == warnedname) and (GetTime() < timepassed + 20)) then
-				alreadywarned = true
-				break
-			end
-		end
-		if (not alreadywarned) then
-			Already_Warned_For["NAMEPLATE"][name] = GetTime()
-			BlackList_PlaySound("nameplate")
-			local nearTail = L["MSG_TAIL_NAMEPLATE"] or L["IS_BLACKLISTED"]
-			BlackList:AddMessage(BlackList:FormatChatTagLine(player, nearTail, "proximity"), "styled")
+		if unitToken and BlackList.ScheduleNameplateProximityCheck then
+			BlackList:ScheduleNameplateProximityCheck(unitToken)
 		end
 	elseif (event == "PARTY_INVITE_REQUEST") then
 		-- search for player name

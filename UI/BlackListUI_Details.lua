@@ -2,6 +2,42 @@ local _, Addon = ...
 local L = Addon.L
 local U = Addon.UI
 
+--- Insert mute checkbox for layouts created before the muted row existed.
+function BlackList:InsertMutedRowInDetails(detailsFrame)
+	if not detailsFrame or getglobal("BlackListStandaloneDetails_MutedCb") then
+		return
+	end
+	local anchor = getglobal("BlackListStandaloneDetails_ExtensionBlock")
+	if not anchor then
+		anchor = getglobal("BlackListStandaloneDetails_Row4")
+	end
+	local reasonHeader = getglobal("BlackListStandaloneDetails_ReasonHeader")
+	if not anchor or not reasonHeader then
+		return
+	end
+	reasonHeader:ClearAllPoints()
+	local rowW = math.max(160, (anchor.GetWidth and anchor:GetWidth()) or 280)
+	local mutedRow = CreateFrame("Frame", "BlackListStandaloneDetails_MutedRow", detailsFrame)
+	mutedRow:SetSize(rowW, 26)
+	mutedRow:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -10)
+	local mutedCb = CreateFrame("CheckButton", "BlackListStandaloneDetails_MutedCb", mutedRow, "UICheckButtonTemplate")
+	mutedCb:SetSize(24, 24)
+	mutedCb:SetPoint("TOPLEFT", mutedRow, "TOPLEFT", 0, 0)
+	local mutedLabel = mutedRow:CreateFontString("BlackListStandaloneDetails_MutedLabel", "OVERLAY", "GameFontNormal")
+	mutedLabel:SetPoint("LEFT", mutedCb, "RIGHT", 4, 0)
+	mutedLabel:SetText(L["OPT_MUTED_CHAT"] or "Mute chat from this player")
+	mutedCb:SetScript("OnClick", function(self)
+		local idx = detailsFrame.currentPlayerIndex
+		if idx and idx > 0 then
+			local pl = BlackList:GetPlayerByIndex(idx)
+			if pl then
+				pl.muted = self:GetChecked() and true or false
+			end
+		end
+	end)
+	reasonHeader:SetPoint("TOPLEFT", mutedRow, "BOTTOMLEFT", 0, -12)
+end
+
 -- Compat: same content as FormatPlayerDetailsMainBlock (name/realm … faction block).
 function BlackList:FormatPlayerDetailsStatLine(player)
 	if not player or not self.FormatPlayerDetailsMainBlock then
@@ -72,19 +108,76 @@ function BlackList:CreateStandaloneDetailsLayout(detailsFrame)
 	addRow("BlackListStandaloneDetails_Line3", "BlackListStandaloneDetails_Row3", "TOOLTIP_HINT_LEVEL_RACE_CLASS", "Level, race and class", false)
 	addRow("BlackListStandaloneDetails_Line4", "BlackListStandaloneDetails_Row4", "TOOLTIP_HINT_FACTION", "Faction", false)
 
-	local datesFs = detailsFrame:CreateFontString("BlackListStandaloneDetails_DatesBlock", "OVERLAY", "GameFontNormal")
-	datesFs:SetPoint("TOPLEFT", prev, "BOTTOMLEFT", 0, -10)
-	datesFs:SetWidth(rowW)
-	datesFs:SetJustifyH("LEFT")
+	local extBlock = detailsFrame:CreateFontString("BlackListStandaloneDetails_ExtensionBlock", "OVERLAY", "GameFontNormal")
+	extBlock:SetPoint("TOPLEFT", prev, "BOTTOMLEFT", 0, -6)
+	extBlock:SetWidth(rowW)
+	extBlock:SetJustifyH("LEFT")
+	prev = extBlock
+
+	local mutedRow = CreateFrame("Frame", "BlackListStandaloneDetails_MutedRow", detailsFrame)
+	mutedRow:SetSize(rowW, 26)
+	mutedRow:SetPoint("TOPLEFT", prev, "BOTTOMLEFT", 0, -10)
+	local mutedCb = CreateFrame("CheckButton", "BlackListStandaloneDetails_MutedCb", mutedRow, "UICheckButtonTemplate")
+	mutedCb:SetSize(24, 24)
+	mutedCb:SetPoint("TOPLEFT", mutedRow, "TOPLEFT", 0, 0)
+	local mutedLabel = mutedRow:CreateFontString("BlackListStandaloneDetails_MutedLabel", "OVERLAY", "GameFontNormal")
+	mutedLabel:SetPoint("LEFT", mutedCb, "RIGHT", 4, 0)
+	mutedLabel:SetText(L["OPT_MUTED_CHAT"] or "Mute chat from this player")
+	mutedCb:SetScript("OnClick", function(self)
+		local idx = detailsFrame.currentPlayerIndex
+		if idx and idx > 0 then
+			local pl = BlackList:GetPlayerByIndex(idx)
+			if pl then
+				pl.muted = self:GetChecked() and true or false
+			end
+		end
+	end)
 
 	local reasonHeader = detailsFrame:CreateFontString("BlackListStandaloneDetails_ReasonHeader", "OVERLAY", "GameFontNormalLarge")
-	reasonHeader:SetPoint("TOPLEFT", datesFs, "BOTTOMLEFT", 0, -12)
+	reasonHeader:SetPoint("TOPLEFT", mutedRow, "BOTTOMLEFT", 0, -12)
 	reasonHeader:SetTextColor(1, 1, 0.41)
 	reasonHeader:SetText(L["REASON_HEADER"] or L["REASON"] or "Reason:")
 
+	-- Bottom row: info (dates tooltip) + Save — widens panel slightly vs inline dates.
+	local bottomRow = CreateFrame("Frame", "BlackListStandaloneDetails_BottomRow", detailsFrame)
+	bottomRow:SetHeight(28)
+	bottomRow:SetPoint("BOTTOMLEFT", detailsFrame, "BOTTOMLEFT", padX, 12)
+	bottomRow:SetPoint("BOTTOMRIGHT", detailsFrame, "BOTTOMRIGHT", -padX, 12)
+
+	local infoDatesBtn = CreateFrame("Button", "BlackListStandaloneDetails_DatesInfoBtn", bottomRow)
+	infoDatesBtn:SetSize(22, 22)
+	infoDatesBtn:SetPoint("LEFT", bottomRow, "LEFT", 0, 0)
+	infoDatesBtn:SetNormalTexture("Interface\\common\\help-i")
+	infoDatesBtn:SetPushedTexture("Interface\\common\\help-i")
+	infoDatesBtn:SetHighlightTexture("Interface\\common\\help-i", "ADD")
+	infoDatesBtn:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		local idx = detailsFrame.currentPlayerIndex
+		local p = idx and BlackList:GetPlayerByIndex(idx)
+		if p and BlackList.FormatPlayerDetailsRichDateBlock then
+			local block = BlackList:FormatPlayerDetailsRichDateBlock(p)
+			if block and strtrim(block) ~= "" then
+				for line in string.gmatch(block, "[^\n]+") do
+					GameTooltip:AddLine(line, 1, 1, 1, true)
+				end
+			else
+				GameTooltip:AddLine(L["DETAILS_NO_INFO"] or "—", 0.53, 0.53, 0.53, false)
+			end
+		else
+			GameTooltip:AddLine(L["DETAILS_NO_INFO"] or "—", 0.53, 0.53, 0.53, false)
+		end
+		GameTooltip:Show()
+	end)
+	infoDatesBtn:SetScript("OnLeave", GameTooltip_Hide)
+
+	local saveBtn = CreateFrame("Button", "BlackListStandaloneDetails_SaveBtn", bottomRow, "UIPanelButtonTemplate")
+	saveBtn:SetSize(110, 24)
+	saveBtn:SetPoint("RIGHT", bottomRow, "RIGHT", 0, 0)
+	saveBtn:SetText(L["BUTTON_SAVE"] or "Save")
+
 	local reasonBg = CreateFrame("Frame", "BlackListStandaloneDetails_ReasonBg", detailsFrame, "BackdropTemplate")
 	reasonBg:SetPoint("TOPLEFT", reasonHeader, "BOTTOMLEFT", 0, -8)
-	reasonBg:SetPoint("BOTTOMRIGHT", detailsFrame, "BOTTOMRIGHT", -padX, 44)
+	reasonBg:SetPoint("BOTTOMRIGHT", bottomRow, "TOPRIGHT", 0, 8)
 	reasonBg:SetBackdrop({
 		bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
 		edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -134,11 +227,6 @@ function BlackList:CreateStandaloneDetailsLayout(detailsFrame)
 			pcall(function() sb:Update() end)
 		end
 	end
-
-	local saveBtn = CreateFrame("Button", "BlackListStandaloneDetails_SaveBtn", detailsFrame, "UIPanelButtonTemplate")
-	saveBtn:SetSize(110, 24)
-	saveBtn:SetPoint("BOTTOMRIGHT", detailsFrame, "BOTTOMRIGHT", -padX, 12)
-	saveBtn:SetText(L["BUTTON_SAVE"] or "Save")
 
 	local function SaveReason()
 		local index = detailsFrame.currentPlayerIndex
@@ -197,7 +285,7 @@ function BlackList:ShowStandaloneDetails()
 	local detailsFrame = getglobal("BlackListStandaloneDetailsFrame")
 	if not detailsFrame then
 		-- Same NineSlice frame + title bar as the list and Add Player dialog (ApplyDBMPanelChrome).
-		detailsFrame = U.createChromeParent("BlackListStandaloneDetailsFrame", UIParent, 320, 380)
+		detailsFrame = U.createChromeParent("BlackListStandaloneDetailsFrame", UIParent, 340, 392)
 		detailsFrame:SetClampedToScreen(true)
 		detailsFrame:SetFrameStrata("DIALOG")
 		detailsFrame:SetFrameLevel(250)
@@ -225,7 +313,10 @@ function BlackList:ShowStandaloneDetails()
 	if detailsFrame and not detailsFrame.blackListDetailsLayoutV2 then
 		self:CreateStandaloneDetailsLayout(detailsFrame)
 	end
-	
+	if detailsFrame and not getglobal("BlackListStandaloneDetails_MutedCb") and getglobal("BlackListStandaloneDetails_BottomRow") then
+		self:InsertMutedRowInDetails(detailsFrame)
+	end
+
 	-- Save previous player's reason before showing new one
 	if detailsFrame.SaveReason and detailsFrame.currentPlayerIndex then
 		detailsFrame.SaveReason()
@@ -240,41 +331,51 @@ function BlackList:ShowStandaloneDetails()
 		title:SetText(L["WINDOW_TITLE_EDIT"] or "Edit")
 	end
 
+	local mainLines = self.GetPlayerDetailsMainLines and self:GetPlayerDetailsMainLines(player) or {}
 	local fs1 = getglobal("BlackListStandaloneDetails_Line1")
-	if fs1 then
-		fs1:SetText(self:FormatRichNameRealmLine(player))
-	end
 	local fs2 = getglobal("BlackListStandaloneDetails_Line2")
 	local row2 = getglobal("BlackListStandaloneDetails_Row2")
 	local row1 = getglobal("BlackListStandaloneDetails_Row1")
 	local row3 = getglobal("BlackListStandaloneDetails_Row3")
-	local gLine = self:FormatRichGuildLine(player)
-	if fs2 and row2 and row1 and row3 then
-		if gLine ~= "" then
-			fs2:SetText(gLine)
+	local fs3 = getglobal("BlackListStandaloneDetails_Line3")
+	local fs4 = getglobal("BlackListStandaloneDetails_Line4")
+	if fs1 then
+		fs1:SetText(mainLines[1] or "")
+	end
+	if fs2 and row2 and row1 and row3 and fs3 and fs4 then
+		if #mainLines == 4 then
+			fs2:SetText(mainLines[2] or "")
 			row2:Show()
 			row2:SetHeight(18)
+			fs3:SetText(mainLines[3] or "")
+			fs4:SetText(mainLines[4] or "")
 			row3:ClearAllPoints()
 			row3:SetPoint("TOPLEFT", row2, "BOTTOMLEFT", 0, -6)
 		else
 			fs2:SetText("")
 			row2:Hide()
+			fs3:SetText(mainLines[2] or "")
+			fs4:SetText(mainLines[3] or "")
 			row3:ClearAllPoints()
 			row3:SetPoint("TOPLEFT", row1, "BOTTOMLEFT", 0, -6)
 		end
 	end
-	local fs3 = getglobal("BlackListStandaloneDetails_Line3")
-	if fs3 then
-		fs3:SetText(self:FormatRichLvlRaceClassLine(player))
-	end
-	local fs4 = getglobal("BlackListStandaloneDetails_Line4")
-	if fs4 then
-		fs4:SetText(self:FormatRichFactionLine(player))
+	local extFs = getglobal("BlackListStandaloneDetails_ExtensionBlock")
+	if extFs and self.GetPlayerDetailsExtensionLines then
+		local ext = self:GetPlayerDetailsExtensionLines(player)
+		if #ext > 0 then
+			extFs:SetText(table.concat(ext, "\n"))
+			extFs:Show()
+		else
+			extFs:SetText("")
+			extFs:Hide()
+		end
 	end
 
-	local datesBlock = getglobal("BlackListStandaloneDetails_DatesBlock")
-	if datesBlock and self.FormatPlayerDetailsRichDateBlock then
-		datesBlock:SetText(self:FormatPlayerDetailsRichDateBlock(player))
+	self:EnsureEntryFields(player)
+	local mutedCb = getglobal("BlackListStandaloneDetails_MutedCb")
+	if mutedCb then
+		mutedCb:SetChecked(player.muted and true or false)
 	end
 
 	local reasonHeader = getglobal("BlackListStandaloneDetails_ReasonHeader")

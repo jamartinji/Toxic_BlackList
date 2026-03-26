@@ -234,14 +234,10 @@ function BlackList:ShowNewOptions()
 		return
 	end
 	
-	-- Position relative to BlackListStandaloneFrame or FriendsFrame
 	frame:ClearAllPoints()
 	local mainFrame = getglobal("BlackListStandaloneFrame")
 	if mainFrame and mainFrame:IsVisible() then
-		-- Position relative to standalone window
 		frame:SetPoint("TOPLEFT", mainFrame, "TOPRIGHT", 10, 0)
-	elseif FriendsFrame then
-		frame:SetPoint("TOPLEFT", FriendsFrame, "TOPRIGHT", 10, 0)
 	else
 		frame:SetPoint("CENTER", UIParent, "CENTER", 200, 0)
 	end

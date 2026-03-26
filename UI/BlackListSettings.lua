@@ -1,4 +1,4 @@
--- Esc -> Options -> AddOns (settings only). Floating list: /blacklist or /tbl or right-click minimap button.
+-- Esc -> Options -> AddOns (settings only). Floating list: /tbl or right-click minimap button.
 
 local _, Addon = ...
 local L = Addon.L

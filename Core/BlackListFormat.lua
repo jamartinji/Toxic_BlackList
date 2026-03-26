@@ -139,10 +139,10 @@ function BlackList:FormatRichFactionLine(player)
 	return "|cff" .. hex .. escBlizz(text) .. "|r"
 end
 
---- Main block (name/realm … faction) for legacy UI or multiline text.
-function BlackList:FormatPlayerDetailsMainBlock(player)
+--- Ordered rich lines: name/realm, optional guild, level/race/class, faction. Override extension via GetPlayerDetailsExtensionLines.
+function BlackList:GetPlayerDetailsMainLines(player)
 	if not player then
-		return ""
+		return {}
 	end
 	local lines = {}
 	lines[#lines + 1] = self:FormatRichNameRealmLine(player)
@@ -152,7 +152,63 @@ function BlackList:FormatPlayerDetailsMainBlock(player)
 	end
 	lines[#lines + 1] = self:FormatRichLvlRaceClassLine(player)
 	lines[#lines + 1] = self:FormatRichFactionLine(player)
-	return table.concat(lines, "\n")
+	return lines
+end
+
+--- Extra lines after the main block (e.g. kills/deaths from a companion addon). Default empty.
+function BlackList:GetPlayerDetailsExtensionLines(player)
+	return {}
+end
+
+--- Lines for list tooltip only; defaults to extension lines. Editor uses GetPlayerDetailsExtensionLines.
+function BlackList:GetPlayerDetailsExtensionTooltipLines(player)
+	return self:GetPlayerDetailsExtensionLines(player)
+end
+
+--- Full player-info section for tooltip/editor: main + extension, ends with blank line for spacing.
+function BlackList:FormatPlayerDetailsPlayerInfoBlock(player)
+	local lines = self:GetPlayerDetailsMainLines(player)
+	local ext = self:GetPlayerDetailsExtensionLines(player)
+	local t = {}
+	for i = 1, #lines do
+		t[#t + 1] = lines[i]
+	end
+	for i = 1, #ext do
+		t[#t + 1] = ext[i]
+	end
+	if #t == 0 then
+		return "\n\n"
+	end
+	return table.concat(t, "\n") .. "\n\n"
+end
+
+--- Date lines (gray markup) as separate strings for tooltip/list row parity.
+function BlackList:GetPlayerDetailsDateLines(player)
+	if not player then
+		return {}
+	end
+	local lines = {}
+	local dblock = self:FormatPlayerDetailsRichDateBlock(player)
+	if dblock and dblock ~= "" then
+		for line in string.gmatch(dblock, "[^\n]+") do
+			lines[#lines + 1] = line
+		end
+	end
+	return lines
+end
+
+--- Date block with trailing blank line (for spacing before reason / extensions).
+function BlackList:FormatPlayerDetailsDateSection(player)
+	local lines = self:GetPlayerDetailsDateLines(player)
+	if #lines == 0 then
+		return ""
+	end
+	return table.concat(lines, "\n") .. "\n\n"
+end
+
+--- Main block (name/realm … faction) for legacy UI or multiline text.
+function BlackList:FormatPlayerDetailsMainBlock(player)
+	return table.concat(self:GetPlayerDetailsMainLines(player), "\n")
 end
 
 --- Dates in gray (Added / Updated).
