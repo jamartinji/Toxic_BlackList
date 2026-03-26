@@ -57,8 +57,7 @@ function BlackList:ShowStandaloneListTooltip(anchor, playerIndex)
 end
 
 function BlackList:CreateStandaloneWindow()
-	-- noNineSlice: NineSlice on first Show can inflate the frame to nearly full screen; keep initial size modest.
-	local frame = U.createChromeParent("BlackListStandaloneFrame", UIParent, 300, 392, { noNineSlice = true })
+	local frame = U.createChromeParent("BlackListStandaloneFrame", UIParent, 300, 392)
 	-- Position like FriendsFrame/CharacterFrame (left side of screen)
 	frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 16, -116)
 	frame:SetClampedToScreen(true)
