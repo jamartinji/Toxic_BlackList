@@ -19,3 +19,7 @@ desktop.ini
 # *.psd
 # *.ai
 # *.xcf
+
+# ignore ai rules
+/AGENTS.md
+/.cursorrules
