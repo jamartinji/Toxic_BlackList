@@ -4,6 +4,19 @@ All notable changes to **Toxic BlackList** are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] - 2026-03-26
+
+### Added
+
+- **Standalone edit window**: Info icon (bottom-left, same row as Save) with a tooltip showing Added/Updated dates (same gray text as before); default panel size slightly increased.
+
+### Fixed
+
+- **Sounds**: Respect **Play sounds** in `PlaySoundForKind`; restore per-context presets when re-enabling sounds after they were muted by migration (`_blSoundMutedByPlaySoundsOff`); optional login restore.
+- **Sounds**: Defer preset playback by one frame (`C_Timer.After(0)`) so SFX from OnUpdate/combat paths are not blocked.
+- **Nameplate proximity**: `NAME_PLATE_UNIT_ADDED` can fire before the unit is valid — schedule checks at 0s and 0.05s; resolve name/realm with `UnitFullName` / `UnitName` and `FindEntryIndexForUnit` for cross-realm matches.
+
+
 ## [1.0.1] - 2026-03-26
 
 ### Fixed
