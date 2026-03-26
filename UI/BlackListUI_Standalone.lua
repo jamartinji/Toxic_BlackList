@@ -34,8 +34,12 @@ function BlackList:ShowStandaloneListTooltip(anchor, playerIndex)
 	for i = 1, #mainLines do
 		tipRich(mainLines[i], true)
 	end
-	if type(self.GetPlayerDetailsExtensionLines) == "function" then
-		local ext = self:GetPlayerDetailsExtensionLines(player) or {}
+	local extFn = self.GetPlayerDetailsExtensionTooltipLines or self.GetPlayerDetailsExtensionLines
+	if type(extFn) == "function" then
+		local ext = extFn(self, player) or {}
+		if #ext > 0 then
+			GameTooltip:AddLine(" ", 1, 1, 1)
+		end
 		for i = 1, #ext do
 			tipRich(ext[i], true)
 		end

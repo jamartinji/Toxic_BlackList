@@ -138,16 +138,46 @@ function BlackList:CreateStandaloneDetailsLayout(detailsFrame)
 	reasonHeader:SetTextColor(1, 1, 0.41)
 	reasonHeader:SetText(L["REASON_HEADER"] or L["REASON"] or "Reason:")
 
-	-- Added / Updated: anchored to bottom (above Save), so reason fills the middle.
-	local datesBottomInset = 44
-	local datesFs = detailsFrame:CreateFontString("BlackListStandaloneDetails_DatesBlock", "OVERLAY", "GameFontNormal")
-	datesFs:SetPoint("BOTTOMLEFT", detailsFrame, "BOTTOMLEFT", padX, datesBottomInset)
-	datesFs:SetWidth(rowW)
-	datesFs:SetJustifyH("LEFT")
+	-- Bottom row: info (dates tooltip) + Save — widens panel slightly vs inline dates.
+	local bottomRow = CreateFrame("Frame", "BlackListStandaloneDetails_BottomRow", detailsFrame)
+	bottomRow:SetHeight(28)
+	bottomRow:SetPoint("BOTTOMLEFT", detailsFrame, "BOTTOMLEFT", padX, 12)
+	bottomRow:SetPoint("BOTTOMRIGHT", detailsFrame, "BOTTOMRIGHT", -padX, 12)
+
+	local infoDatesBtn = CreateFrame("Button", "BlackListStandaloneDetails_DatesInfoBtn", bottomRow)
+	infoDatesBtn:SetSize(22, 22)
+	infoDatesBtn:SetPoint("LEFT", bottomRow, "LEFT", 0, 0)
+	infoDatesBtn:SetNormalTexture("Interface\\common\\help-i")
+	infoDatesBtn:SetPushedTexture("Interface\\common\\help-i")
+	infoDatesBtn:SetHighlightTexture("Interface\\common\\help-i", "ADD")
+	infoDatesBtn:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		local idx = detailsFrame.currentPlayerIndex
+		local p = idx and BlackList:GetPlayerByIndex(idx)
+		if p and BlackList.FormatPlayerDetailsRichDateBlock then
+			local block = BlackList:FormatPlayerDetailsRichDateBlock(p)
+			if block and strtrim(block) ~= "" then
+				for line in string.gmatch(block, "[^\n]+") do
+					GameTooltip:AddLine(line, 1, 1, 1, true)
+				end
+			else
+				GameTooltip:AddLine(L["DETAILS_NO_INFO"] or "—", 0.53, 0.53, 0.53, false)
+			end
+		else
+			GameTooltip:AddLine(L["DETAILS_NO_INFO"] or "—", 0.53, 0.53, 0.53, false)
+		end
+		GameTooltip:Show()
+	end)
+	infoDatesBtn:SetScript("OnLeave", GameTooltip_Hide)
+
+	local saveBtn = CreateFrame("Button", "BlackListStandaloneDetails_SaveBtn", bottomRow, "UIPanelButtonTemplate")
+	saveBtn:SetSize(110, 24)
+	saveBtn:SetPoint("RIGHT", bottomRow, "RIGHT", 0, 0)
+	saveBtn:SetText(L["BUTTON_SAVE"] or "Save")
 
 	local reasonBg = CreateFrame("Frame", "BlackListStandaloneDetails_ReasonBg", detailsFrame, "BackdropTemplate")
 	reasonBg:SetPoint("TOPLEFT", reasonHeader, "BOTTOMLEFT", 0, -8)
-	reasonBg:SetPoint("BOTTOMRIGHT", datesFs, "TOPRIGHT", 0, 8)
+	reasonBg:SetPoint("BOTTOMRIGHT", bottomRow, "TOPRIGHT", 0, 8)
 	reasonBg:SetBackdrop({
 		bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
 		edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -197,11 +227,6 @@ function BlackList:CreateStandaloneDetailsLayout(detailsFrame)
 			pcall(function() sb:Update() end)
 		end
 	end
-
-	local saveBtn = CreateFrame("Button", "BlackListStandaloneDetails_SaveBtn", detailsFrame, "UIPanelButtonTemplate")
-	saveBtn:SetSize(110, 24)
-	saveBtn:SetPoint("BOTTOMRIGHT", detailsFrame, "BOTTOMRIGHT", -padX, 12)
-	saveBtn:SetText(L["BUTTON_SAVE"] or "Save")
 
 	local function SaveReason()
 		local index = detailsFrame.currentPlayerIndex
@@ -260,7 +285,7 @@ function BlackList:ShowStandaloneDetails()
 	local detailsFrame = getglobal("BlackListStandaloneDetailsFrame")
 	if not detailsFrame then
 		-- Same NineSlice frame + title bar as the list and Add Player dialog (ApplyDBMPanelChrome).
-		detailsFrame = U.createChromeParent("BlackListStandaloneDetailsFrame", UIParent, 320, 380)
+		detailsFrame = U.createChromeParent("BlackListStandaloneDetailsFrame", UIParent, 340, 392)
 		detailsFrame:SetClampedToScreen(true)
 		detailsFrame:SetFrameStrata("DIALOG")
 		detailsFrame:SetFrameLevel(250)
@@ -288,7 +313,7 @@ function BlackList:ShowStandaloneDetails()
 	if detailsFrame and not detailsFrame.blackListDetailsLayoutV2 then
 		self:CreateStandaloneDetailsLayout(detailsFrame)
 	end
-	if detailsFrame and not getglobal("BlackListStandaloneDetails_MutedCb") and getglobal("BlackListStandaloneDetails_DatesBlock") then
+	if detailsFrame and not getglobal("BlackListStandaloneDetails_MutedCb") and getglobal("BlackListStandaloneDetails_BottomRow") then
 		self:InsertMutedRowInDetails(detailsFrame)
 	end
 
@@ -345,11 +370,6 @@ function BlackList:ShowStandaloneDetails()
 			extFs:SetText("")
 			extFs:Hide()
 		end
-	end
-
-	local datesBlock = getglobal("BlackListStandaloneDetails_DatesBlock")
-	if datesBlock and self.FormatPlayerDetailsRichDateBlock then
-		datesBlock:SetText(self:FormatPlayerDetailsRichDateBlock(player))
 	end
 
 	self:EnsureEntryFields(player)

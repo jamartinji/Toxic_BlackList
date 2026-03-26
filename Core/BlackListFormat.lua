@@ -160,6 +160,11 @@ function BlackList:GetPlayerDetailsExtensionLines(player)
 	return {}
 end
 
+--- Lines for list tooltip only; defaults to extension lines. Editor uses GetPlayerDetailsExtensionLines.
+function BlackList:GetPlayerDetailsExtensionTooltipLines(player)
+	return self:GetPlayerDetailsExtensionLines(player)
+end
+
 --- Full player-info section for tooltip/editor: main + extension, ends with blank line for spacing.
 function BlackList:FormatPlayerDetailsPlayerInfoBlock(player)
 	local lines = self:GetPlayerDetailsMainLines(player)
