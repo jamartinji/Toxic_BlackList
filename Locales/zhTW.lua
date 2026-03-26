@@ -5,12 +5,24 @@ local L = Addon.L
 
 if GetLocale() ~= "zhTW" then return end
 
+-- ---------------------------------------------------------------------------
+-- General — status & list messages
+-- ---------------------------------------------------------------------------
+
 L["PLAYER_IGNORING"] = "玩家正在忽略你。"
 L["PLAYER_NOT_FOUND"] = "未找到玩家。"
 L["ALREADY_BLACKLISTED"] = "已經在黑名單中。"
 L["ADDED_TO_BLACKLIST"] = "已新增至黑名單。"
+L["BLACKLIST_MERGED_UPDATE"] = "已用伺服器與詳情更新項目。"
 L["REMOVED_FROM_BLACKLIST"] = "已從黑名單中移除。"
+
+-- ---------------------------------------------------------------------------
+-- UI — title, context menu, window & buttons
+-- ---------------------------------------------------------------------------
+
 L["BLACKLIST"] = "黑名單"
+L["CONTEXT_ADD_BLACKLIST"] = "加入黑名單"
+L["CONTEXT_REMOVE_BLACKLIST"] = "從黑名單移除"
 L["BLACKLIST_PLAYER"] = "將玩家加入黑名單"
 L["REMOVE_PLAYER"] = "移除玩家"
 L["ADD_PLAYER_POPUP"] = "依名稱新增"
@@ -20,9 +32,31 @@ L["SHARE_LIST"] = "分享名單"
 L["BLACK_LIST_DETAILS_TITLE"] = "詳細：%s"
 L["WINDOW_TITLE_EDIT"] = "編輯"
 L["WINDOW_TITLE_ADD_PLAYER"] = "依名稱新增"
+
+-- ---------------------------------------------------------------------------
+-- Details panel
+-- ---------------------------------------------------------------------------
+
 L["LEVEL"] = "等級"
 L["DETAILS_NO_INFO"] = "無資訊"
 L["DATE_ADDED_LABEL"] = "加入時間："
+L["DATE_UPDATED_LABEL"] = "上次更新："
+L["PREFIX_ADDED"] = "加入時間："
+L["PREFIX_UPDATED"] = "更新時間："
+L["DETAILS_REALM"] = "伺服器"
+L["DETAILS_GUILD"] = "公會"
+L["DETAILS_WINDOW_TITLE"] = "詳細"
+L["BUTTON_SAVE"] = "儲存"
+L["TOOLTIP_HINT_NAME_REALM"] = "角色名與伺服器"
+L["TOOLTIP_HINT_GUILD"] = "公會"
+L["TOOLTIP_HINT_LEVEL_RACE_CLASS"] = "等級、種族與職業"
+L["TOOLTIP_HINT_FACTION"] = "陣營"
+
+-- ---------------------------------------------------------------------------
+-- Reason, bindings, factions & unknowns
+-- ---------------------------------------------------------------------------
+
+L["REASON_HEADER"] = "原因"
 L["REASON"] = "原因："
 L["IS_BLACKLISTED"] = "在你的黑名單中。"
 L["BINDING_HEADER_BLACKLIST"] = "黑名單"
@@ -35,21 +69,19 @@ L["ALLIANCE"] = "聯盟"
 L["HORDE"] = "部落"
 L["UNKNOWN"] = "未知"
 L["REALM_UNKNOWN"] = "未知伺服器"
-L["DATE_UPDATED_LABEL"] = "上次更新："
-L["PREFIX_ADDED"] = "加入時間："
-L["PREFIX_UPDATED"] = "更新時間："
-L["DETAILS_REALM"] = "伺服器"
-L["DETAILS_GUILD"] = "公會"
-L["DETAILS_WINDOW_TITLE"] = "詳細"
-L["BUTTON_SAVE"] = "儲存"
-L["TOOLTIP_HINT_NAME_REALM"] = "角色名與伺服器"
-L["TOOLTIP_HINT_GUILD"] = "公會"
-L["TOOLTIP_HINT_LEVEL_RACE_CLASS"] = "等級、種族與職業"
-L["TOOLTIP_HINT_FACTION"] = "陣營"
-L["REASON_HEADER"] = "原因"
+
+-- ---------------------------------------------------------------------------
+-- Proximity alert labels (options)
+-- ---------------------------------------------------------------------------
+
 L["WARN_MOUSEOVER"] = "滑鼠懸停在黑名單玩家上時發出警告"
 L["WARN_NAMEPLATE"] = "附近名條屬於黑名單玩家時發出警告"
 L["OPT_WARN_TARGETED_BY"] = "黑名單玩家選取你時發出警告"
+
+-- ---------------------------------------------------------------------------
+-- Options — section titles & tabs
+-- ---------------------------------------------------------------------------
+
 L["OPT_SECTION_GENERAL"] = "一般"
 L["OPT_SECTION_COMMUNICATION"] = "聊天"
 L["OPT_SECTION_GROUP"] = "隊伍"
@@ -62,16 +94,33 @@ L["TOOLTIP_FLOAT_RIGHT_LIST"] = "右鍵：開啟列表"
 L["TOOLTIP_FLOAT_CTRL_LEFT_EDIT"] = "Ctrl+左鍵：新增並編輯"
 L["TOOLTIP_FLOAT_CTRL_RIGHT_ADD"] = "Ctrl+右鍵：新增目標"
 L["TOOLTIP_FLOAT_ALT_DRAG_LINE"] = "Alt+拖曳：移動"
+
+-- ---------------------------------------------------------------------------
+-- Options — floating button chrome
+-- ---------------------------------------------------------------------------
+
 L["OPT_SECTION_FLOATING"] = "螢幕快捷按鈕"
 L["OPT_FLOAT_BTN_SIZE"] = "按鈕大小（寬 × 高）"
 L["OPT_FLOAT_BTN_RESET"] = "重設位置與大小"
 L["TOOLTIP_FLOAT_TITLE"] = "Black List"
+
+-- ---------------------------------------------------------------------------
+-- Sound — mute & play sounds
+-- ---------------------------------------------------------------------------
+
+L["SOUND_PRESET_NONE"] = "No sound"
 L["OPT_PLAY_SOUNDS"] = "播放警告音效"
+
+-- ---------------------------------------------------------------------------
+-- Options — communication, group, quick button
+-- ---------------------------------------------------------------------------
+
 L["OPT_WARN_TARGET"] = "選取黑名單玩家為目標時發出警告"
 L["OPT_PREVENT_WHISPERS"] = "阻擋黑名單玩家的悄悄話"
 L["OPT_WARN_WHISPERS"] = "黑名單玩家悄悄話時發出警告"
 L["OPT_PREVENT_INVITES"] = "阻擋黑名單玩家邀請你入隊"
 L["OPT_PREVENT_MY_INVITES"] = "阻擋你邀請黑名單玩家"
+L["OPT_MUTED_CHAT"] = "屏蔽此玩家的聊天訊息"
 L["OPT_WARN_PARTY_JOIN"] = "黑名單玩家加入隊伍時發出警告"
 L["OPT_MUTE_PROXIMITY_REST"] = "在城市關閉提示"
 L["TOOLTIP_EDIT_BTN"] = "編輯"
@@ -80,12 +129,22 @@ L["TOOLTIP_FLOATING_QUICK_LEFT"] = "左鍵：新增目標"
 L["TOOLTIP_FLOATING_QUICK_RIGHT"] = "右鍵：開啟列表"
 L["TOOLTIP_FLOATING_QUICK_DRAG"] = "Alt+拖曳：移動按鈕"
 L["TOOLTIP_FLOATING_QUICK_ALT_RIGHT"] = "Alt+右鍵：選項"
+
+-- ---------------------------------------------------------------------------
+-- Chat — whispers, invites, party
+-- ---------------------------------------------------------------------------
+
 L["MSG_PLAYER_BLACKLISTED"] = "%s %s"
 L["MSG_WHISPER_WARN"] = "%s %s 並對你悄悄話。"
 L["MSG_PREVENT_MY_INVITE"] = "%s %s，無法邀請。"
 L["MSG_DECLINED_PARTY_INVITE"] = "已拒絕黑名單玩家 %s 的隊伍邀請。"
 L["MSG_PARTY_INVITE_WARN"] = "%s %s 並邀請你加入隊伍。"
 L["PARTY_WARN_TITLE"] = "警告：隊伍中有黑名單玩家！"
+
+-- ---------------------------------------------------------------------------
+-- Logs & minimap
+-- ---------------------------------------------------------------------------
+
 L["LOG_CHATFRAME_HOOK_MISSING"] = "找不到 ChatFrame_OnEvent，悄悄話過濾可能無效。"
 L["LOG_ERROR_IN"] = "%s 發生錯誤："
 L["REASON_SAVED_FOR"] = "已儲存 %s 的原因"
@@ -94,6 +153,11 @@ L["MINIMAP_TOOLTIP_RIGHT_CLICK"] = "右鍵：%s"
 L["MINIMAP_TOOLTIP_LEFT_OPTIONS"] = "左鍵：開啟選項"
 L["MINIMAP_TOOLTIP_RIGHT_LIST"] = "右鍵：開啟列表"
 L["REASON_EDIT_HINT"] = "游標移到列上可檢視詳細資訊。按兩下可編輯。"
+
+-- ---------------------------------------------------------------------------
+-- Help
+-- ---------------------------------------------------------------------------
+
 L["HELP_BUTTON"] = "?"
 L["HELP_BUTTON_TOOLTIP"] = "指令與說明"
 L["HELP_TITLE"] = "黑名單 — 說明"
@@ -102,15 +166,57 @@ L["HELP_PANEL_TEXT"] = [[視窗
 • 按兩下列可開啟編輯（原因與資料）。
 
 聊天指令
-/blacklist 或 /tbl — 無參數時開啟此視窗。
-/tbl 角色名 選填原因 — 依名稱新增。
+/tbl — 無參數時開啟此視窗。
 
-/removeblacklist 或 /removebl — 依名稱移除。無參數時移除目前目標。
+/tbla — 開啟新增玩家對話框。
+
+/tblr — 依名稱移除。無參數時移除目前目標。
 ]]
+
+-- ---------------------------------------------------------------------------
+-- List row menu & add-player dialog
+-- ---------------------------------------------------------------------------
+
 L["ROW_MENU_EDIT"] = "編輯…"
 L["STANDALONE_EDIT_TOOLTIP"] = "Opens the editor for the selected entry.\nYou can also double-click a row."
 L["ROW_MENU_DELETE"] = "移除"
 L["BLACKLIST_POPUP_TEXT"] = "在下方填寫玩家名稱（必填）與原因（選填）。"
 L["POPUP_NAME_EDIT_HINT"] = "玩家名稱"
+
+-- ---------------------------------------------------------------------------
+-- Sound — per-alert labels & message tails
+-- ---------------------------------------------------------------------------
+
+L["OPT_SOUND_TARGET"] = "Target warning sound"
+L["OPT_SOUND_MOUSEOVER"] = "Mouseover warning sound"
+L["OPT_SOUND_NAMEPLATE"] = "Nameplate warning sound"
+L["OPT_RAID_SOUND"] = "Party / group warning sound"
 L["OPT_SOUND_TARGETED_BY"] = "黑名單玩家選取你時的音效"
 L["MSG_TARGETED_BY_WARN"] = "黑名單中的 %s 正在選取你"
+L["MSG_TAIL_TARGET_MOUSE"] = "在你的黑名單中。"
+L["MSG_TAIL_NAMEPLATE"] = "（黑名單）在附近。"
+L["MSG_TAIL_PARTY_GROUP"] = "（黑名單）在你的隊伍中。"
+L["MSG_TAIL_TARGETED_BY"] = "（黑名單）的目標是你！"
+L["OPT_SOUND_TEST"] = "Test"
+
+-- ---------------------------------------------------------------------------
+-- Sound — preset names
+-- ---------------------------------------------------------------------------
+
+L["SOUND_PRESET_PVP_QUEUE"] = "PVP queue (default alert)"
+L["SOUND_PRESET_RAID_WARNING"] = "Raid warning"
+L["SOUND_PRESET_READY_CHECK"] = "Ready check"
+L["SOUND_PRESET_RAID_BOSS_EMOTE"] = "Raid boss emote warning"
+L["SOUND_PRESET_ALARM"] = "Alarm clock"
+L["SOUND_PRESET_GM_WARNING"] = "GM chat warning"
+L["SOUND_PRESET_RAID_BOSS_WHISPER"] = "Raid boss whisper"
+L["SOUND_PRESET_TELL"] = "Tell / whisper notification"
+L["SOUND_PRESET_BNET_TOAST"] = "Battle.net toast"
+L["SOUND_PRESET_LOSS_OF_CONTROL"] = "Loss of control"
+
+-- ---------------------------------------------------------------------------
+-- Settings panel (Esc menu)
+-- ---------------------------------------------------------------------------
+
+L["SETTINGS_HINT_OPTIONS_ONLY"] = "此面板僅包含選項。使用 /tbl 或選單開啟清單。"
+L["OPT_ALERT_SOUND"] = "警示音效"

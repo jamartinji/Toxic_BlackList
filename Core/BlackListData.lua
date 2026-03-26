@@ -2,6 +2,9 @@ local _, Addon = ...
 local L = Addon.L
 BlackList = BlackList or {}
 
+--- Single saved list for the whole WoW account (not per realm).
+local ACCOUNT_LIST_KEY = "__ACCOUNT__"
+
 local function NormalizePlayerName(name)
 	if not name or name == "" then
 		return nil
@@ -13,7 +16,84 @@ local function NormalizePlayerName(name)
 	return s
 end
 
+--- Lowercase trimmed realm for comparisons; empty = unknown / manual name-only.
+local function NormalizeRealmKey(realm)
+	return strtrim(tostring(realm or "")):lower()
+end
+
+--- Merge legacy per-realm buckets into one account list (dedupe by name+realm). Safe to call repeatedly after migration flag is set.
+function BlackList:MigrateToAccountWideList()
+	if not BlackListedPlayers then
+		return
+	end
+	local hadLegacy = false
+	for k in pairs(BlackListedPlayers) do
+		if k ~= ACCOUNT_LIST_KEY and type(k) == "string" then
+			hadLegacy = true
+			break
+		end
+	end
+	if not hadLegacy then
+		if not BlackListedPlayers[ACCOUNT_LIST_KEY] then
+			BlackListedPlayers[ACCOUNT_LIST_KEY] = {}
+		end
+		return
+	end
+	local merged = {}
+	local seen = {}
+	local function entryDedupeKey(e)
+		if type(e) ~= "table" or not e.name then
+			return nil
+		end
+		local n = NormalizePlayerName(e.name) or ""
+		local r = string.lower(strtrim(tostring(e.realm or "")))
+		return n .. "|" .. r
+	end
+	local function appendEntry(e)
+		local dk = entryDedupeKey(e)
+		if not dk or seen[dk] then
+			return
+		end
+		seen[dk] = true
+		table.insert(merged, e)
+	end
+	for k, v in pairs(BlackListedPlayers) do
+		if type(v) == "table" and type(k) == "string" then
+			for _, e in ipairs(v) do
+				appendEntry(e)
+			end
+		end
+	end
+	for k in pairs(BlackListedPlayers) do
+		BlackListedPlayers[k] = nil
+	end
+	BlackListedPlayers[ACCOUNT_LIST_KEY] = merged
+	if BlackListOptions then
+		BlackListOptions.accountWideListMigrated = true
+	end
+end
+
+function BlackList:GetAccountList()
+	if not BlackListedPlayers then
+		BlackListedPlayers = {}
+	end
+	self:MigrateToAccountWideList()
+	if not BlackListedPlayers[ACCOUNT_LIST_KEY] then
+		BlackListedPlayers[ACCOUNT_LIST_KEY] = {}
+	end
+	return BlackListedPlayers[ACCOUNT_LIST_KEY]
+end
+
 --- Ensure new fields on legacy entries (realm, guild, faction, updatedAt, manualAdd).
+--- True when realm was never resolved (manual add or not yet seen in-game).
+function BlackList:IsRealmUnknown(player)
+	if not player then
+		return true
+	end
+	self:EnsureEntryFields(player)
+	return strtrim(tostring(player.realm or "")) == ""
+end
+
 function BlackList:EnsureEntryFields(player)
 	if not player then
 		return
@@ -45,18 +125,22 @@ function BlackList:EnsureEntryFields(player)
 			player.manualAdd = false
 		end
 	end
+	if player.muted == nil then
+		player.muted = false
+	end
 end
 
 function BlackList:MigrateAllBlacklistedEntries()
 	if not BlackListedPlayers then
 		return
 	end
-	for _, list in pairs(BlackListedPlayers) do
-		if type(list) == "table" then
-			for _, entry in ipairs(list) do
-				self:EnsureEntryFields(entry)
-			end
-		end
+	self:MigrateToAccountWideList()
+	local list = self:GetAccountList()
+	if not list then
+		return
+	end
+	for _, entry in ipairs(list) do
+		self:EnsureEntryFields(entry)
 	end
 end
 
@@ -194,6 +278,26 @@ function BlackList:ApplyUnitDataToPlayerEntry(player, data)
 	end
 end
 
+--- Remove duplicate name-only rows after this entry gained a real realm (same name, empty realm).
+function BlackList:RemoveOtherUnknownSameNameEntries(keepName, keepIndex)
+	if not keepName or not keepIndex or keepIndex < 1 then
+		return
+	end
+	local norm = NormalizePlayerName(keepName)
+	if not norm then
+		return
+	end
+	local list = self:GetAccountList()
+	for i = #list, 1, -1 do
+		if i ~= keepIndex then
+			local p = list[i]
+			if p and NormalizePlayerName(p.name) == norm and self:IsRealmUnknown(p) then
+				table.remove(list, i)
+			end
+		end
+	end
+end
+
 --- If the unit is blacklisted and a refresh is due, merge live data (realm, guild, faction, etc.).
 function BlackList:TryUpdateBlacklistedPlayerFromUnit(unit)
 	if not unit then
@@ -214,7 +318,11 @@ function BlackList:TryUpdateBlacklistedPlayerFromUnit(unit)
 	if not name then
 		return
 	end
-	local idx = self:GetIndexByName(name)
+	local data = self:CollectPlayerFieldsFromUnit(unit)
+	if not data then
+		return
+	end
+	local idx = self:FindEntryIndexForUnit(name, data.realm)
 	if idx <= 0 then
 		return
 	end
@@ -226,11 +334,11 @@ function BlackList:TryUpdateBlacklistedPlayerFromUnit(unit)
 	if not self:ShouldRefreshEntryFromUnit(player) then
 		return
 	end
-	local data = self:CollectPlayerFieldsFromUnit(unit)
-	if not data then
-		return
-	end
+	local prevRealm = strtrim(tostring(player.realm or ""))
 	self:ApplyUnitDataToPlayerEntry(player, data)
+	if prevRealm == "" and strtrim(tostring(player.realm or "")) ~= "" then
+		self:RemoveOtherUnknownSameNameEntries(player.name, idx)
+	end
 	local standaloneFrame = getglobal("BlackListStandaloneFrame")
 	if standaloneFrame and standaloneFrame:IsVisible() and self.UpdateStandaloneUI then
 		self:UpdateStandaloneUI()
@@ -249,6 +357,7 @@ function BlackList:AddPlayer(player, reason)
 
 	local name, level, class, race, raceEn, added
 	local realm, guild, faction, manualAdd, updatedAt
+	local dataFromUnit = nil
 
 	-- handle player
 	if (player == "" or player == nil) then
@@ -265,20 +374,20 @@ function BlackList:AddPlayer(player, reason)
 			race, raceEn = UnitRace("target");
 			manualAdd = false
 			updatedAt = time()
-			local data = self:CollectPlayerFieldsFromUnit("target")
-			if data then
-				if data.level ~= "" then
-					level = data.level
+			dataFromUnit = self:CollectPlayerFieldsFromUnit("target")
+			if dataFromUnit then
+				if dataFromUnit.level ~= "" then
+					level = dataFromUnit.level
 				end
-				if data.class ~= "" then
-					class = data.class
+				if dataFromUnit.class ~= "" then
+					class = dataFromUnit.class
 				end
-				if data.race ~= "" then
-					race = data.race
+				if dataFromUnit.race ~= "" then
+					race = dataFromUnit.race
 				end
-				realm = data.realm or ""
-				guild = data.guild or ""
-				faction = data.faction or ""
+				realm = dataFromUnit.realm or ""
+				guild = dataFromUnit.guild or ""
+				faction = dataFromUnit.faction or ""
 			else
 				realm = ""
 				guild = ""
@@ -301,12 +410,6 @@ function BlackList:AddPlayer(player, reason)
 		manualAdd = true
 		updatedAt = nil
 	end
-	if (self:GetIndexByName(name) > 0) then
-		local p = self:GetPlayerByIndex(self:GetIndexByName(name))
-		self:AddMessage(self:FormatChatTagLine(p, L["ALREADY_BLACKLISTED"], "listAdd"), "styled")
-		return;
-	end
-
 	-- handle reason
 	if (reason == nil) then
 		reason = "";
@@ -322,6 +425,46 @@ function BlackList:AddPlayer(player, reason)
 			name = string.upper(string.sub(name, 1, len)) .. string.lower(string.sub(name, len + 1));
 		end
 	end
+
+	-- Duplicate check / merge: manual entries use empty realm; target merge fills unknown row.
+	if (player == "target") then
+		if dataFromUnit then
+			realm = dataFromUnit.realm or realm or ""
+		end
+		local idxExact = self:GetIndexByNameAndRealm(name, realm or "")
+		local idxUnk = self:GetIndexByNameAndRealm(name, "")
+		if idxExact > 0 then
+			local p = self:GetPlayerByIndex(idxExact)
+			self:AddMessage(self:FormatChatTagLine(p, L["ALREADY_BLACKLISTED"], "listAdd"), "styled")
+			return
+		end
+		if idxUnk > 0 and dataFromUnit then
+			local p = self:GetPlayerByIndex(idxUnk)
+			self:ApplyUnitDataToPlayerEntry(p, dataFromUnit)
+			self:RemoveOtherUnknownSameNameEntries(p.name, idxUnk)
+			self:AddMessage(self:FormatChatTagLine(p, L["BLACKLIST_MERGED_UPDATE"] or "Entry updated with realm and details.", "listAdd"), "styled")
+			local standaloneFrame = getglobal("BlackListStandaloneFrame")
+			if standaloneFrame and standaloneFrame:IsVisible() then
+				self:SetSelectedBlackList(idxUnk)
+				self:UpdateStandaloneUI()
+				if self.ShowStandaloneDetails then
+					self:ShowStandaloneDetails()
+				end
+			end
+			return
+		end
+		if idxUnk > 0 and not dataFromUnit then
+			local p = self:GetPlayerByIndex(idxUnk)
+			self:AddMessage(self:FormatChatTagLine(p, L["ALREADY_BLACKLISTED"], "listAdd"), "styled")
+			return
+		end
+	else
+		if (self:GetIndexByNameAndRealm(name, "") > 0) then
+			local p = self:GetPlayerByIndex(self:GetIndexByNameAndRealm(name, ""))
+			self:AddMessage(self:FormatChatTagLine(p, L["ALREADY_BLACKLISTED"], "listAdd"), "styled")
+			return
+		end
+	end
 	
 	local entry = {
 		["name"] = name,
@@ -335,17 +478,22 @@ function BlackList:AddPlayer(player, reason)
 		["faction"] = faction or "",
 		["manualAdd"] = manualAdd,
 		["updatedAt"] = updatedAt,
+		["muted"] = false,
 	}
 	self:EnsureEntryFields(entry)
-	table.insert(BlackListedPlayers[GetRealmName()], entry);
+	table.insert(self:GetAccountList(), entry);
 
-	local pAdded = self:GetPlayerByIndex(self:GetIndexByName(name))
+	local newIdx = self:GetIndexByNameAndRealm(name, realm or "")
+	local pAdded = newIdx > 0 and self:GetPlayerByIndex(newIdx) or self:GetPlayerByIndex(self:GetIndexByName(name))
 	self:AddMessage(self:FormatChatTagLine(pAdded, L["ADDED_TO_BLACKLIST"], "listAdd"), "styled")
 
 	-- Update standalone UI if it exists; open details so the user can set/edit reason
 	local standaloneFrame = getglobal("BlackListStandaloneFrame")
 	if standaloneFrame and standaloneFrame:IsVisible() then
-		local idx = self:GetIndexByName(name)
+		local idx = self:GetIndexByNameAndRealm(name, realm or "")
+		if idx <= 0 then
+			idx = self:GetIndexByName(name)
+		end
 		if idx and idx > 0 then
 			self:SetSelectedBlackList(idx)
 		end
@@ -355,6 +503,179 @@ function BlackList:AddPlayer(player, reason)
 		end
 	end
 
+end
+
+--- Add from right-click menu (name + realm + optional class/race from context). `unitToken` fills guild/level/etc.
+function BlackList:AddPlayerFromContextMenu(name, realm, classToken, race, unitToken)
+	if not name or name == "" then
+		return
+	end
+	realm = realm or ""
+	if self:IsContextPlayerSelf(name, realm) then
+		return
+	end
+	local dataFromUnit = nil
+	if unitToken then
+		local okEx = pcall(UnitExists, unitToken)
+		if okEx and UnitExists(unitToken) and pcall(UnitIsPlayer, unitToken) and UnitIsPlayer(unitToken) then
+			dataFromUnit = self:CollectPlayerFieldsFromUnit(unitToken)
+		end
+	end
+	local realmFinal = realm
+	if dataFromUnit and dataFromUnit.realm and strtrim(dataFromUnit.realm) ~= "" then
+		realmFinal = dataFromUnit.realm
+	end
+	local idxExact = self:GetIndexByNameAndRealm(name, realmFinal)
+	if idxExact > 0 then
+		local p = self:GetPlayerByIndex(idxExact)
+		self:AddMessage(self:FormatChatTagLine(p, L["ALREADY_BLACKLISTED"], "listAdd"), "styled")
+		return
+	end
+	local idxUnk = self:GetIndexByNameAndRealm(name, "")
+	if idxUnk > 0 and dataFromUnit then
+		local p = self:GetPlayerByIndex(idxUnk)
+		self:ApplyUnitDataToPlayerEntry(p, dataFromUnit)
+		self:RemoveOtherUnknownSameNameEntries(p.name, idxUnk)
+		self:AddMessage(self:FormatChatTagLine(p, L["BLACKLIST_MERGED_UPDATE"] or "Entry updated with realm and details.", "listAdd"), "styled")
+		local standaloneFrame = getglobal("BlackListStandaloneFrame")
+		if standaloneFrame and standaloneFrame:IsVisible() then
+			self:SetSelectedBlackList(idxUnk)
+			if self.UpdateStandaloneUI then
+				self:UpdateStandaloneUI()
+			end
+			if self.ShowStandaloneDetails then
+				self:ShowStandaloneDetails()
+			end
+		end
+		return
+	end
+	if ((GetLocale() ~= "zhTW") and (GetLocale() ~= "zhCN") and (GetLocale() ~= "koKR")) then
+		local _, len = string.find(name, "[%z\1-\127\194-\244][\128-\191]*")
+		if len then
+			name = string.upper(string.sub(name, 1, len)) .. string.lower(string.sub(name, len + 1))
+		end
+	end
+	local reason = ""
+	local added = time()
+	local entry
+	if dataFromUnit then
+		entry = {
+			["name"] = name,
+			["reason"] = reason,
+			["added"] = added,
+			["level"] = dataFromUnit.level or "",
+			["class"] = (dataFromUnit.class ~= "" and dataFromUnit.class) or (classToken or ""),
+			["race"] = (dataFromUnit.race ~= "" and dataFromUnit.race) or (race or ""),
+			["realm"] = dataFromUnit.realm or realm or "",
+			["guild"] = dataFromUnit.guild or "",
+			["faction"] = dataFromUnit.faction or "",
+			["manualAdd"] = false,
+			["updatedAt"] = time(),
+			["muted"] = false,
+		}
+	else
+		entry = {
+			["name"] = name,
+			["reason"] = reason,
+			["added"] = added,
+			["level"] = "",
+			["class"] = classToken or "",
+			["race"] = race or "",
+			["realm"] = realm or "",
+			["guild"] = "",
+			["faction"] = "",
+			["manualAdd"] = false,
+			["updatedAt"] = time(),
+			["muted"] = false,
+		}
+	end
+	self:EnsureEntryFields(entry)
+	table.insert(self:GetAccountList(), entry)
+	local newIdx = self:GetIndexByNameAndRealm(name, entry.realm or "")
+	local pAdded = newIdx > 0 and self:GetPlayerByIndex(newIdx) or self:GetPlayerByIndex(self:GetIndexByName(name))
+	if pAdded then
+		self:AddMessage(self:FormatChatTagLine(pAdded, L["ADDED_TO_BLACKLIST"], "listAdd"), "styled")
+	end
+	local standaloneFrame = getglobal("BlackListStandaloneFrame")
+	if standaloneFrame and standaloneFrame:IsVisible() then
+		local idx = newIdx > 0 and newIdx or self:GetIndexByName(name)
+		if idx and idx > 0 then
+			self:SetSelectedBlackList(idx)
+		end
+		if self.UpdateStandaloneUI then
+			self:UpdateStandaloneUI()
+		end
+		if self.ShowStandaloneDetails then
+			self:ShowStandaloneDetails()
+		end
+	end
+end
+
+--- Match chat `author` string (Name or Name-Realm) to a stored entry.
+function BlackList:EntryMatchesChatAuthor(p, authorRaw)
+	if not p or not authorRaw then
+		return false
+	end
+	self:EnsureEntryFields(p)
+	local a = strtrim(tostring(authorRaw))
+	if a == "" then
+		return false
+	end
+	a = a:lower()
+	local an, ar
+	local dashPos = a:find("-", nil, true)
+	if dashPos then
+		an = strtrim(string.sub(a, 1, dashPos - 1))
+		ar = strtrim(string.sub(a, dashPos + 1))
+	else
+		an = a
+	end
+	ar = ar and strtrim(ar):lower() or ""
+	if ar == "" then
+		ar = (GetRealmName() and GetRealmName():lower()) or ""
+	end
+	local pr = strtrim(tostring(p.realm or "")):lower()
+	if pr == "" then
+		pr = (GetRealmName() and GetRealmName():lower()) or ""
+	end
+	local pn = NormalizePlayerName(p.name)
+	local anorm = NormalizePlayerName(an)
+	if not pn or not anorm then
+		return false
+	end
+	return pn == anorm and pr == ar
+end
+
+--- True if this author should be hidden in chat (per-entry muted flag).
+function BlackList:IsChatMutedAuthor(author)
+	if not author or author == "" then
+		return false
+	end
+	for i = 1, self:GetNumBlackLists() do
+		local p = self:GetPlayerByIndex(i)
+		if p and p.muted and self:EntryMatchesChatAuthor(p, author) then
+			return true
+		end
+	end
+	return false
+end
+
+function BlackList:IsContextPlayerSelf(name, realm)
+	if not name then
+		return false
+	end
+	local myName = UnitName("player")
+	if not myName then
+		return false
+	end
+	local n1 = NormalizePlayerName(name)
+	local n2 = NormalizePlayerName(myName)
+	if not n1 or not n2 or n1 ~= n2 then
+		return false
+	end
+	local r = strtrim(tostring(realm or "")):lower()
+	local mr = strtrim(tostring(GetRealmName() or "")):lower()
+	return r == mr
 end
 
 function BlackList:RemovePlayer(player)
@@ -382,7 +703,7 @@ function BlackList:RemovePlayer(player)
 	local pRem = self:GetPlayerByIndex(index)
 	name = self:GetNameByIndex(index);
 
-	table.remove(BlackListedPlayers[GetRealmName()], index);
+	table.remove(self:GetAccountList(), index);
 
 	self:AddMessage(self:FormatChatTagLine(pRem, L["REMOVED_FROM_BLACKLIST"], "listRemove"), "styled")
 
@@ -419,16 +740,75 @@ function BlackList:UpdateDetails(index, reason)
 		player["reason"] = reason;
 	end
 
-	table.remove(BlackListedPlayers[GetRealmName()], index);
-	table.insert(BlackListedPlayers[GetRealmName()], index, player);
+	local list = self:GetAccountList()
+	table.remove(list, index);
+	table.insert(list, index, player);
 
 end
 
 -- Returns the number of blacklisted players
 function BlackList:GetNumBlackLists()
-	if not BlackListedPlayers[GetRealmName()] then return 0 end
-	return #BlackListedPlayers[GetRealmName()];
+	local list = self:GetAccountList()
+	if not list then return 0 end
+	return #list
 
+end
+
+--- Index for exact name + realm (empty realm = manual / unknown bucket).
+function BlackList:GetIndexByNameAndRealm(name, realm)
+	local norm = NormalizePlayerName(name)
+	if not norm then
+		return 0
+	end
+	local rr = NormalizeRealmKey(realm)
+	for i = 1, self:GetNumBlackLists() do
+		local p = self:GetPlayerByIndex(i)
+		if not p then
+			break
+		end
+		if NormalizePlayerName(p.name) == norm and NormalizeRealmKey(p.realm) == rr then
+			return i
+		end
+	end
+	return 0
+end
+
+--- Pick list row for a live unit: exact realm match, else same-name unknown realm row.
+function BlackList:FindEntryIndexForUnit(name, realmFromUnit)
+	if not name then
+		return 0
+	end
+	local norm = NormalizePlayerName(name)
+	if not norm then
+		return 0
+	end
+	local ur = NormalizeRealmKey(realmFromUnit)
+	local bestUnknown = 0
+	for i = 1, self:GetNumBlackLists() do
+		local p = self:GetPlayerByIndex(i)
+		if not p then
+			break
+		end
+		if NormalizePlayerName(p.name) == norm then
+			local pr = NormalizeRealmKey(p.realm)
+			if ur ~= "" then
+				if pr == ur then
+					return i
+				end
+				if pr == "" then
+					bestUnknown = i
+				end
+			else
+				if pr == "" then
+					return i
+				end
+			end
+		end
+	end
+	if bestUnknown > 0 then
+		return bestUnknown
+	end
+	return 0
 end
 
 -- Returns the index of the player given by name
@@ -453,8 +833,9 @@ function BlackList:GetNameByIndex(index)
 		return nil;
 	end
 
-	local p = BlackListedPlayers[GetRealmName()][index];
-	return p["name"];
+	local list = self:GetAccountList()
+	local p = list and list[index];
+	return p and p["name"];
 
 end
 
@@ -465,7 +846,7 @@ function BlackList:GetPlayerByIndex(index)
 		return nil
 	end
 
-	local p = BlackListedPlayers[GetRealmName()][index];
-	return p;
+	local list = self:GetAccountList()
+	return list and list[index];
 
 end

@@ -5,12 +5,24 @@ local L = Addon.L
 
 if GetLocale() ~= "frFR" then return end
 
+-- ---------------------------------------------------------------------------
+-- General — status & list messages
+-- ---------------------------------------------------------------------------
+
 L["PLAYER_IGNORING"] = "Le joueur vous ignore."
 L["PLAYER_NOT_FOUND"] = "Joueur introuvable."
 L["ALREADY_BLACKLISTED"] = "est déjà sur liste noire."
 L["ADDED_TO_BLACKLIST"] = "ajouté à la liste noire."
+L["BLACKLIST_MERGED_UPDATE"] = "Entrée mise à jour avec le royaume et les détails."
 L["REMOVED_FROM_BLACKLIST"] = "retiré de la liste noire."
+
+-- ---------------------------------------------------------------------------
+-- UI — title, context menu, window & buttons
+-- ---------------------------------------------------------------------------
+
 L["BLACKLIST"] = "Liste noire"
+L["CONTEXT_ADD_BLACKLIST"] = "Ajouter à la liste noire"
+L["CONTEXT_REMOVE_BLACKLIST"] = "Retirer de la liste noire"
 L["BLACKLIST_PLAYER"] = "Mettre le joueur sur liste noire"
 L["REMOVE_PLAYER"] = "Retirer le joueur"
 L["ADD_PLAYER_POPUP"] = "Ajouter par nom"
@@ -20,9 +32,31 @@ L["SHARE_LIST"] = "Partager la liste"
 L["BLACK_LIST_DETAILS_TITLE"] = "Détails : %s"
 L["WINDOW_TITLE_EDIT"] = "Modifier"
 L["WINDOW_TITLE_ADD_PLAYER"] = "Ajouter un joueur"
+
+-- ---------------------------------------------------------------------------
+-- Details panel
+-- ---------------------------------------------------------------------------
+
 L["LEVEL"] = "Niveau"
 L["DETAILS_NO_INFO"] = "Aucune information"
 L["DATE_ADDED_LABEL"] = "Date d'ajout :"
+L["DATE_UPDATED_LABEL"] = "Dernière mise à jour :"
+L["PREFIX_ADDED"] = "Ajouté :"
+L["PREFIX_UPDATED"] = "Mis à jour :"
+L["DETAILS_REALM"] = "Royaume"
+L["DETAILS_GUILD"] = "Guilde"
+L["DETAILS_WINDOW_TITLE"] = "Détails"
+L["BUTTON_SAVE"] = "Enregistrer"
+L["TOOLTIP_HINT_NAME_REALM"] = "Nom du joueur et royaume"
+L["TOOLTIP_HINT_GUILD"] = "Guilde"
+L["TOOLTIP_HINT_LEVEL_RACE_CLASS"] = "Niveau, race et classe"
+L["TOOLTIP_HINT_FACTION"] = "Faction"
+
+-- ---------------------------------------------------------------------------
+-- Reason, bindings, factions & unknowns
+-- ---------------------------------------------------------------------------
+
+L["REASON_HEADER"] = "Raison"
 L["REASON"] = "Raison:"
 L["IS_BLACKLISTED"] = "est sur votre liste noire."
 L["BINDING_HEADER_BLACKLIST"] = "Liste noire"
@@ -35,21 +69,19 @@ L["ALLIANCE"] = "Alliance"
 L["HORDE"] = "Horde"
 L["UNKNOWN"] = "Inconnu"
 L["REALM_UNKNOWN"] = "Royaume inconnu"
-L["DATE_UPDATED_LABEL"] = "Dernière mise à jour :"
-L["PREFIX_ADDED"] = "Ajouté :"
-L["PREFIX_UPDATED"] = "Mis à jour :"
-L["DETAILS_REALM"] = "Royaume"
-L["DETAILS_GUILD"] = "Guilde"
-L["DETAILS_WINDOW_TITLE"] = "Détails"
-L["BUTTON_SAVE"] = "Enregistrer"
-L["TOOLTIP_HINT_NAME_REALM"] = "Nom du joueur et royaume"
-L["TOOLTIP_HINT_GUILD"] = "Guilde"
-L["TOOLTIP_HINT_LEVEL_RACE_CLASS"] = "Niveau, race et classe"
-L["TOOLTIP_HINT_FACTION"] = "Faction"
-L["REASON_HEADER"] = "Raison"
+
+-- ---------------------------------------------------------------------------
+-- Proximity alert labels (options)
+-- ---------------------------------------------------------------------------
+
 L["WARN_MOUSEOVER"] = "Avertir lors du survol de joueurs sur la liste noire"
 L["WARN_NAMEPLATE"] = "Avertir lorsqu'une plaque de nom proche appartient à un joueur sur la liste noire"
 L["OPT_WARN_TARGETED_BY"] = "Avertir quand un joueur sur la liste noire vous cible"
+
+-- ---------------------------------------------------------------------------
+-- Options — section titles & tabs
+-- ---------------------------------------------------------------------------
+
 L["OPT_SECTION_GENERAL"] = "Général"
 L["OPT_SECTION_COMMUNICATION"] = "Communication"
 L["OPT_SECTION_GROUP"] = "Groupe"
@@ -62,16 +94,33 @@ L["TOOLTIP_FLOAT_RIGHT_LIST"] = "Clic droit : ouvrir la liste"
 L["TOOLTIP_FLOAT_CTRL_LEFT_EDIT"] = "Ctrl+clic gauche : ajouter et modifier"
 L["TOOLTIP_FLOAT_CTRL_RIGHT_ADD"] = "Ctrl+clic droit : ajouter la cible"
 L["TOOLTIP_FLOAT_ALT_DRAG_LINE"] = "Alt+glisser : déplacer"
+
+-- ---------------------------------------------------------------------------
+-- Options — floating button chrome
+-- ---------------------------------------------------------------------------
+
 L["OPT_SECTION_FLOATING"] = "Bouton rapide à l'écran"
 L["OPT_FLOAT_BTN_SIZE"] = "Taille du bouton (largeur × hauteur)"
 L["OPT_FLOAT_BTN_RESET"] = "Réinitialiser position et taille"
 L["TOOLTIP_FLOAT_TITLE"] = "Black List"
+
+-- ---------------------------------------------------------------------------
+-- Sound — mute & play sounds
+-- ---------------------------------------------------------------------------
+
+L["SOUND_PRESET_NONE"] = "No sound"
 L["OPT_PLAY_SOUNDS"] = "Jouer les sons d'alerte"
+
+-- ---------------------------------------------------------------------------
+-- Options — communication, group, quick button
+-- ---------------------------------------------------------------------------
+
 L["OPT_WARN_TARGET"] = "Avertir en ciblant un joueur sur la liste noire"
 L["OPT_PREVENT_WHISPERS"] = "Bloquer les chuchotements des joueurs sur la liste noire"
 L["OPT_WARN_WHISPERS"] = "Avertir quand un joueur sur la liste noire vous chuchote"
 L["OPT_PREVENT_INVITES"] = "Empêcher les invitations des joueurs sur la liste noire"
 L["OPT_PREVENT_MY_INVITES"] = "Empêcher d'inviter des joueurs sur la liste noire"
+L["OPT_MUTED_CHAT"] = "Masquer le chat de ce joueur"
 L["OPT_WARN_PARTY_JOIN"] = "Avertir quand un joueur sur la liste noire rejoint votre groupe"
 L["OPT_MUTE_PROXIMITY_REST"] = "Désactiver les alertes en ville"
 L["TOOLTIP_EDIT_BTN"] = "Modifier"
@@ -80,12 +129,22 @@ L["TOOLTIP_FLOATING_QUICK_LEFT"] = "Clic gauche : ajouter cible"
 L["TOOLTIP_FLOATING_QUICK_RIGHT"] = "Clic droit : ouvrir liste"
 L["TOOLTIP_FLOATING_QUICK_DRAG"] = "Alt+glisser : deplacer bouton"
 L["TOOLTIP_FLOATING_QUICK_ALT_RIGHT"] = "Alt+clic droit : options"
+
+-- ---------------------------------------------------------------------------
+-- Chat — whispers, invites, party
+-- ---------------------------------------------------------------------------
+
 L["MSG_PLAYER_BLACKLISTED"] = "%s %s"
 L["MSG_WHISPER_WARN"] = "%s %s et vous a chuchoté."
 L["MSG_PREVENT_MY_INVITE"] = "%s %s — invitation impossible."
 L["MSG_DECLINED_PARTY_INVITE"] = "Invitation de groupe refusée (%s, liste noire)."
 L["MSG_PARTY_INVITE_WARN"] = "%s %s et vous a invité dans un groupe."
 L["PARTY_WARN_TITLE"] = "ATTENTION : un joueur sur la liste noire est dans votre groupe !"
+
+-- ---------------------------------------------------------------------------
+-- Logs & minimap
+-- ---------------------------------------------------------------------------
+
 L["LOG_CHATFRAME_HOOK_MISSING"] = "ChatFrame_OnEvent introuvable ; le filtre des chuchotements peut échouer."
 L["LOG_ERROR_IN"] = "ERREUR dans %s :"
 L["REASON_SAVED_FOR"] = "Raison enregistrée pour %s"
@@ -94,6 +153,11 @@ L["MINIMAP_TOOLTIP_RIGHT_CLICK"] = "Clic droit : %s"
 L["MINIMAP_TOOLTIP_LEFT_OPTIONS"] = "Clic gauche : ouvrir les options"
 L["MINIMAP_TOOLTIP_RIGHT_LIST"] = "Clic droit : ouvrir la liste"
 L["REASON_EDIT_HINT"] = "Survolez une ligne pour les détails. Double-clic pour modifier."
+
+-- ---------------------------------------------------------------------------
+-- Help
+-- ---------------------------------------------------------------------------
+
 L["HELP_BUTTON"] = "?"
 L["HELP_BUTTON_TOOLTIP"] = "Commandes et aide"
 L["HELP_TITLE"] = "Liste noire — Aide"
@@ -102,15 +166,57 @@ L["HELP_PANEL_TEXT"] = [[FENÊTRE
 • Double-clic sur une ligne pour ouvrir l'éditeur (raison et données).
 
 COMMANDES
-/blacklist ou /tbl — Ouvre cette fenêtre sans argument.
-/tbl Nom raison optionnelle — Ajoute un joueur par nom.
+/tbl — Ouvre cette fenêtre (sans argument).
 
-/removeblacklist ou /removebl — Retire par nom. Sans argument : retire la cible actuelle.
+/tbla — Ouvre la boîte d’ajout de joueur.
+
+/tblr — Retire par nom. Sans argument : retire la cible actuelle.
 ]]
+
+-- ---------------------------------------------------------------------------
+-- List row menu & add-player dialog
+-- ---------------------------------------------------------------------------
+
 L["ROW_MENU_EDIT"] = "Modifier…"
 L["STANDALONE_EDIT_TOOLTIP"] = "Ouvre l'éditeur pour la ligne sélectionnée.\nVous pouvez aussi double-cliquer."
 L["ROW_MENU_DELETE"] = "Retirer"
 L["BLACKLIST_POPUP_TEXT"] = "Remplissez les champs ci-dessous : nom du joueur (obligatoire) et raison (facultatif)."
 L["POPUP_NAME_EDIT_HINT"] = "Nom du joueur"
+
+-- ---------------------------------------------------------------------------
+-- Sound — per-alert labels & message tails
+-- ---------------------------------------------------------------------------
+
+L["OPT_SOUND_TARGET"] = "Target warning sound"
+L["OPT_SOUND_MOUSEOVER"] = "Mouseover warning sound"
+L["OPT_SOUND_NAMEPLATE"] = "Nameplate warning sound"
+L["OPT_RAID_SOUND"] = "Party / group warning sound"
 L["OPT_SOUND_TARGETED_BY"] = "Son quand un joueur sur la liste noire vous cible"
 L["MSG_TARGETED_BY_WARN"] = "%s (liste noire) vous prend pour cible"
+L["MSG_TAIL_TARGET_MOUSE"] = "est sur votre liste noire."
+L["MSG_TAIL_NAMEPLATE"] = "de votre liste noire est à proximité."
+L["MSG_TAIL_PARTY_GROUP"] = "de votre liste noire est dans votre groupe."
+L["MSG_TAIL_TARGETED_BY"] = "de votre liste noire vous cible !"
+L["OPT_SOUND_TEST"] = "Test"
+
+-- ---------------------------------------------------------------------------
+-- Sound — preset names
+-- ---------------------------------------------------------------------------
+
+L["SOUND_PRESET_PVP_QUEUE"] = "PVP queue (default alert)"
+L["SOUND_PRESET_RAID_WARNING"] = "Raid warning"
+L["SOUND_PRESET_READY_CHECK"] = "Ready check"
+L["SOUND_PRESET_RAID_BOSS_EMOTE"] = "Raid boss emote warning"
+L["SOUND_PRESET_ALARM"] = "Alarm clock"
+L["SOUND_PRESET_GM_WARNING"] = "GM chat warning"
+L["SOUND_PRESET_RAID_BOSS_WHISPER"] = "Raid boss whisper"
+L["SOUND_PRESET_TELL"] = "Tell / whisper notification"
+L["SOUND_PRESET_BNET_TOAST"] = "Battle.net toast"
+L["SOUND_PRESET_LOSS_OF_CONTROL"] = "Loss of control"
+
+-- ---------------------------------------------------------------------------
+-- Settings panel (Esc menu)
+-- ---------------------------------------------------------------------------
+
+L["SETTINGS_HINT_OPTIONS_ONLY"] = "Ce panneau ne contient que des options. Ouvrez la liste avec /tbl ou le menu."
+L["OPT_ALERT_SOUND"] = "Son d'alerte"

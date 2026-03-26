@@ -30,21 +30,17 @@ function BlackList:ShowStandaloneListTooltip(anchor, playerIndex)
 	end
 	GameTooltip:SetOwner(anchor, "ANCHOR_RIGHT")
 	GameTooltip:ClearLines()
-	tipRich(self:FormatRichNameRealmLine(player), true)
-	local g = self:FormatRichGuildLine(player)
-	if g ~= "" then
-		tipRich(g, true)
+	local mainLines = (type(self.GetPlayerDetailsMainLines) == "function" and self:GetPlayerDetailsMainLines(player)) or {}
+	for i = 1, #mainLines do
+		tipRich(mainLines[i], true)
 	end
-	tipRich(self:FormatRichLvlRaceClassLine(player), true)
-	tipRich(self:FormatRichFactionLine(player), true)
-	if self.FormatPlayerDetailsRichDateBlock then
-		local dblock = self:FormatPlayerDetailsRichDateBlock(player)
-		if dblock and dblock ~= "" then
-			for line in string.gmatch(dblock, "[^\n]+") do
-				tipRich(line, false)
-			end
+	if type(self.GetPlayerDetailsExtensionLines) == "function" then
+		local ext = self:GetPlayerDetailsExtensionLines(player) or {}
+		for i = 1, #ext do
+			tipRich(ext[i], true)
 		end
 	end
+	GameTooltip:AddLine(" ", 1, 1, 1)
 	local rh = L["REASON_HEADER"] or L["REASON"] or "Reason:"
 	GameTooltip:AddLine(rh, 1, 1, 0.41, false)
 	local rs = player.reason
@@ -52,6 +48,11 @@ function BlackList:ShowStandaloneListTooltip(anchor, playerIndex)
 		tipRich(rs, true)
 	else
 		GameTooltip:AddLine(L["DETAILS_NO_INFO"] or "—", 0.65, 0.65, 0.65, true)
+	end
+	GameTooltip:AddLine(" ", 1, 1, 1)
+	local dateLines = (type(self.GetPlayerDetailsDateLines) == "function" and self:GetPlayerDetailsDateLines(player)) or {}
+	for i = 1, #dateLines do
+		tipRich(dateLines[i], false)
 	end
 	GameTooltip:Show()
 end
