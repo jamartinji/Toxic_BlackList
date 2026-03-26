@@ -1,0 +1,23 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/FrameXML">
+	<!-- Locales load from Toxic_BlackList.toc first. Frame markup is included from UI/Xml/. -->
+	<Script file="Core\Media.lua" />
+	<Script file="Core\BlackListData.lua" />
+	<Script file="Core\BlackListFormat.lua" />
+	<Script file="Modules\BlackListSounds.lua" />
+	<Script file="Core\BlackList.lua" />
+	<Script file="UI\BlackListUI_Shared.lua" />
+	<Script file="UI\BlackListUI_Chrome.lua" />
+	<Script file="UI\BlackListUI_OptionsDialog.lua" />
+	<Script file="UI\BlackListUI_Standalone.lua" />
+	<Script file="UI\BlackListUI_Details.lua" />
+	<Script file="UI\BlackListUI_Friends.lua" />
+	<Script file="UI\BlackListUI_QuickButton.lua" />
+	<Script file="UI\BlackListSettings.lua" />
+	<!-- Frame layout split for readability (see UI/Xml/). -->
+	<Include file="UI\Xml\BlackListFrames_Virtual.xml" />
+	<Include file="UI\Xml\BlackListFrames_MainPanel.xml" />
+	<Include file="UI\Xml\BlackListFrames_Details.xml" />
+	<Include file="UI\Xml\BlackListFrames_LegacyOptions.xml" />
+	<Include file="UI\Xml\BlackListFrames_TopFrame.xml" />
+
+</Ui>

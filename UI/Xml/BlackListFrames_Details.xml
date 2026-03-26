@@ -1,0 +1,223 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/ FrameXML">
+	<Frame name="BlackListDetailsFrame" inherits="BackdropTemplate" toplevel="true" parent="UIParent" movable="true" enableMouse="true" hidden="true">
+		<Size>
+			<AbsDimension x="297" y="250" />
+		</Size>
+		<Anchors>
+			<Anchor point="TOPLEFT" relativeTo="FriendsFrame" relativePoint="TOPRIGHT">
+				<Offset>
+					<AbsDimension x="-35" y="-65" />
+				</Offset>
+			</Anchor>
+		</Anchors>
+		<Layers>
+			<Layer level="OVERLAY">
+				<Texture name="BlackListDetailsCorner" file="Interface\DialogFrame\UI-DialogBox-Corner">
+					<Size>
+						<AbsDimension x="32" y="32" />
+					</Size>
+					<Anchors>
+						<Anchor point="TOPRIGHT">
+							<Offset>
+								<AbsDimension x="-6" y="-7" />
+							</Offset>
+						</Anchor>
+					</Anchors>
+				</Texture>
+			</Layer>
+			<Layer level="ARTWORK">
+				<FontString name="BlackListDetailsName" inherits="GameFontNormal" text="">
+					<Anchors>
+						<Anchor point="TOPLEFT">
+							<Offset>
+								<AbsDimension x="17" y="-42" />
+							</Offset>
+						</Anchor>
+					</Anchors>
+				</FontString>
+				<FontString name="BlackListDetailsLevel" inherits="GameFontHighlightSmall" justifyH="LEFT">
+					<Size>
+						<AbsDimension x="250" y="0" />
+					</Size>
+					<Anchors>
+						<Anchor point="TOPLEFT" relativeTo="BlackListDetailsName" relativePoint="BOTTOMLEFT">
+							<Offset>
+								<AbsDimension x="8" y="-8" />
+							</Offset>
+						</Anchor>
+					</Anchors>
+				</FontString>
+				<FontString name="BlackListDetailsRace" inherits="GameFontHighlightSmall" hidden="true">
+					<Anchors>
+						<Anchor point="TOPLEFT" relativeTo="BlackListDetailsLevel" relativePoint="BOTTOMLEFT">
+							<Offset>
+								<AbsDimension x="0" y="-4" />
+							</Offset>
+						</Anchor>
+					</Anchors>
+				</FontString>
+				<FontString name="BlackListDetailsBlackListedLabel" inherits="GameFontNormal" text="">
+					<Anchors>
+						<Anchor point="TOPLEFT" relativeTo="BlackListDetailsLevel" relativePoint="BOTTOMLEFT">
+							<Offset>
+								<AbsDimension x="0" y="-8" />
+							</Offset>
+						</Anchor>
+					</Anchors>
+				</FontString>
+				<FontString name="BlackListDetailsBlackListedText" inherits="GameFontHighlight" justifyH="LEFT">
+					<Anchors>
+						<Anchor point="LEFT" relativeTo="BlackListDetailsBlackListedLabel" relativePoint="RIGHT">
+							<Offset>
+								<AbsDimension x="2" y="0" />
+							</Offset>
+						</Anchor>
+					</Anchors>
+				</FontString>
+				<FontString name="BlackListDetailsReasonLabel" inherits="GameFontNormal" text="REASON">
+					<Anchors>
+						<Anchor point="TOPLEFT" relativeTo="BlackListDetailsBlackListedLabel" relativePoint="BOTTOMLEFT">
+							<Offset>
+								<AbsDimension x="0" y="-38" />
+							</Offset>
+						</Anchor>
+					</Anchors>
+				</FontString>
+			</Layer>
+		</Layers>
+		<Frames>
+			<Button name="BlackListDetailsCloseButton" inherits="UIPanelCloseButton">
+				<Anchors>
+					<Anchor point="TOPRIGHT">
+						<Offset>
+							<AbsDimension x="-2" y="-2" />
+						</Offset>
+					</Anchor>
+				</Anchors>
+			</Button>
+			<Frame name="BlackListDetailsFactionInsigniaFrame" hidden="true">
+				<Size>
+					<AbsDimension x="24" y="24" />
+				</Size>
+				<Anchors>
+					<Anchor point="TOPLEFT" relativeTo="BlackListDetailsLevel" relativePoint="BOTTOMLEFT">
+						<Offset>
+							<AbsDimension x="140" y="10" />
+						</Offset>
+					</Anchor>
+				</Anchors>
+				<Layers>
+					<Layer level="ARTWORK">
+						<Texture name="BlackListDetailsFactionInsignia">
+							<Size>
+								<AbsDimension x="24" y="24" />
+							</Size>
+							<Anchors>
+								<Anchor point="TOPLEFT">
+									<Offset>
+										<AbsDimension x="0" y="0" />
+									</Offset>
+								</Anchor>
+							</Anchors>
+						</Texture>
+					</Layer>
+				</Layers>
+			</Frame>
+			<Frame name="BlackListDetailsFrameReasonTextBackground" inherits="BackdropTemplate">
+				<Size>
+					<AbsDimension x="266" y="93" />
+				</Size>
+				<Anchors>
+					<Anchor point="TOPLEFT" relativeTo="BlackListDetailsReasonLabel" relativePoint="BOTTOMLEFT">
+						<Offset>
+							<AbsDimension x="-1" y="-4" />
+						</Offset>
+					</Anchor>
+				</Anchors>
+				<Frames>
+					<ScrollFrame name="BlackListDetailsFrameScrollFrame" inherits="UIPanelScrollFrameTemplate">
+						<Size>
+							<AbsDimension x="233" y="81" />
+						</Size>
+						<Anchors>
+							<Anchor point="TOPLEFT">
+								<Offset>
+									<AbsDimension x="5" y="-7" />
+								</Offset>
+							</Anchor>
+						</Anchors>
+						<Scripts>
+							<OnMouseDown>
+								BlackListDetailsFrameReasonTextBox:SetFocus();
+							</OnMouseDown>
+							<OnMouseUp>
+								BlackListDetailsFrameReasonTextBox:SetFocus();
+							</OnMouseUp> 
+						</Scripts>
+						<ScrollChild>
+							<EditBox name="BlackListDetailsFrameReasonTextBox" letters="500" multiLine="true" autoFocus="false">
+								<Size>
+									<AbsDimension x="230" y="81" />
+								</Size>
+								<Scripts>
+									<OnEscapePressed>
+										self:ClearFocus();
+									</OnEscapePressed>
+									<OnTextChanged>
+										local scrollBar = getglobal(self:GetParent():GetName().."ScrollBar");
+										self:GetParent():UpdateScrollChildRect();
+										local min;
+										local max;
+										min, max = scrollBar:GetMinMaxValues();
+										if ( max > 0 and (self.max ~= max) ) then
+											self.max = max;
+											scrollBar:SetValue(max);
+										end
+										BlackList:UpdateDetails(BlackList:GetSelectedBlackList(), self:GetText());
+									</OnTextChanged>
+								</Scripts>
+								<FontString inherits="GameFontHighlight" />
+							</EditBox>
+						</ScrollChild>
+					</ScrollFrame>
+				</Frames>
+				<Scripts>
+					<OnLoad>
+						self:SetBackdrop({
+							bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+							edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+							tile = true,
+							tileSize = 16,
+							edgeSize = 16,
+							insets = { left = 5, right = 5, top = 5, bottom = 5 },
+						});
+						self:SetBackdropBorderColor(TOOLTIP_DEFAULT_COLOR.r, TOOLTIP_DEFAULT_COLOR.g, TOOLTIP_DEFAULT_COLOR.b);
+						self:SetBackdropColor(TOOLTIP_DEFAULT_BACKGROUND_COLOR.r, TOOLTIP_DEFAULT_BACKGROUND_COLOR.g, TOOLTIP_DEFAULT_BACKGROUND_COLOR.b);
+					</OnLoad>
+					<OnShow>
+					</OnShow>
+				</Scripts>
+			</Frame>
+		</Frames>
+		<Scripts>
+			<OnHide>
+			</OnHide>
+			<OnLoad>
+				self:SetBackdrop({
+					bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+					edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+					tile = true,
+					tileSize = 32,
+					edgeSize = 32,
+					insets = { left = 11, right = 12, top = 12, bottom = 11 },
+				});
+				if BlackList and BlackList.SkinFriendsDetailsFrameDBM then
+					BlackList:SkinFriendsDetailsFrameDBM(self);
+				end
+				if InitializePfUIIntegration then
+					InitializePfUIIntegration();
+				end
+			</OnLoad>
+		</Scripts>
+	</Frame>
+</Ui>

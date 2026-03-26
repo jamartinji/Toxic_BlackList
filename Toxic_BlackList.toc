@@ -1,0 +1,43 @@
+## Interface: 120000, 120010, 120100, 120200
+## Title: Toxic BlackList
+## Version: 1.0
+## Author: Drakeinhart
+## Notes: Keeps a list of players you don't want to play with (black listed).
+## Notes-esES: Mantiene una lista de jugadores con los que no quieres jugar (lista negra).
+## Notes-esMX: Mantiene una lista de jugadores con los que no quieres jugar (lista negra).
+## Notes-deDE: Führt eine Liste von Spielern, mit denen Sie nicht spielen möchten.
+## Notes-frFR: Conserve une liste de joueurs avec lesquels vous ne voulez pas jouer.
+## Notes-itIT: Mantiene un elenco di giocatori con cui non vuoi giocare.
+## Notes-koKR: 함께 플레이하고 싶지 않은 플레이어 목록(블랙리스트)을 유지합니다.
+## Notes-ptBR: Mantém uma lista de jogadores com quem você não quer jogar.
+## Notes-ruRU: Ведет список игроков, с которыми вы не хотите играть.
+## Notes-zhCN: 记录您不想一起玩的游戏玩家列表（黑名单）。
+## Notes-zhTW: 記錄您不想一起玩的遊戲玩家列表（黑名單）。
+## Category: Other
+## Category-deDE: Anderes
+## Category-esES: Otros
+## Category-esMX: Otros
+## Category-frFR: Autre
+## Category-itIT: Altro
+## Category-koKR: 기타
+## Category-ptBR: Outro
+## Category-ruRU: Другое
+## Category-zhCN: 其它
+## Category-zhTW: 其他
+## IconTexture: Interface\AddOns\Toxic_BlackList\Media\Images\bl-icon.png
+## SavedVariables: BlackListedPlayers, BlackListOptions
+
+Locales\enUS.lua
+Locales\enGB.lua
+Locales\esES.lua
+Locales\esMX.lua
+Locales\deDE.lua
+Locales\frFR.lua
+Locales\itIT.lua
+Locales\ruRU.lua
+Locales\zhCN.lua
+Locales\zhTW.lua
+Locales\koKR.lua
+Locales\ptBR.lua
+
+UI\BlackListFrames.xml

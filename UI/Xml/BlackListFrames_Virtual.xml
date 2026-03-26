@@ -1,0 +1,69 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/ FrameXML">
+	<Button name="FriendsFrameToggleTab3" inherits="PanelTopTabButtonTemplate" text="BLACKLIST" virtual="true">
+		<Anchors>
+			<Anchor point="LEFT" relativeTo="FriendsFrameToggleTab2" relativePoint="RIGHT">
+				<Offset>
+					<AbsDimension x="0" y="0" />
+				</Offset>
+			</Anchor>
+		</Anchors>
+		<Scripts>
+			<OnShow>
+				PanelTemplates_DeselectTab(self);
+			</OnShow>
+			<OnClick>
+				BlackList:ShowTab();
+			</OnClick>
+		</Scripts>
+	</Button>
+
+	<Button name="IgnoreFrameToggleTab3" inherits="PanelTopTabButtonTemplate" text="BLACKLIST" virtual="true">
+		<Anchors>
+			<Anchor point="LEFT" relativeTo="IgnoreFrameToggleTab2" relativePoint="RIGHT">
+				<Offset>
+					<AbsDimension x="0" y="0" />
+				</Offset>
+			</Anchor>
+		</Anchors>
+		<Scripts>
+			<OnShow>
+				PanelTemplates_DeselectTab(self);
+			</OnShow>
+			<OnClick>
+				BlackList:ShowTab();
+			</OnClick>
+		</Scripts>
+	</Button>
+
+	<Button name="FriendsFrameBlackListButtonTemplate" virtual="true">
+		<Size>
+			<AbsDimension x="266" y="20" />
+		</Size>
+		<Frames>
+			<Frame name="$parentButtonText" setAllPoints="true">
+				<Layers>
+					<Layer level="BORDER">
+						<FontString name="$parentName" inherits="GameFontNormal">
+							<Anchors>
+								<Anchor point="TOPLEFT">
+									<Offset>
+										<AbsDimension x="10" y="-3" />
+									</Offset>
+								</Anchor>
+							</Anchors>
+						</FontString>
+					</Layer>
+				</Layers>
+			</Frame>
+		</Frames>
+		<Scripts>
+			<OnLoad>
+				BlackList:InitFriendsBlacklistRowButton(self);
+			</OnLoad>
+			<OnClick>
+				BlackList:ClickBlackList(self);
+				PlaySound("igMainMenuOptionCheckBoxOn");
+			</OnClick>
+		</Scripts>
+	</Button>
+</Ui>

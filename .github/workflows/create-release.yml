@@ -1,0 +1,86 @@
+# Create a git tag from the version in the addon .toc and publish a GitHub Release with a ZIP file.
+# Triggers: (1) on push to main when the .toc file changed (e.g. version bump on merge);
+#           (2) manually from Actions → Run workflow.
+# If the tag for the current TOC version already exists, the workflow does nothing.
+
+name: Create Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Toxic_BlackList.toc'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from TOC
+        id: version
+        run: |
+          TOC="Toxic_BlackList.toc"
+          if [ ! -f "$TOC" ]; then
+            echo "::error::File $TOC not found"
+            exit 1
+          fi
+          VERSION=$(grep -E '^\s*##\s*Version\s*:' "$TOC" | sed 's/.*Version\s*:\s*//' | tr -d ' \r\n')
+          if [ -z "$VERSION" ]; then
+            echo "::error::Could not parse version from $TOC (expected line like '## Version: 1.0')"
+            exit 1
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v${VERSION}" >> $GITHUB_OUTPUT
+          echo "Using version: $VERSION → tag v${VERSION}"
+
+      - name: Check if tag already exists
+        id: check
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "Tag $TAG already exists. Skipping tag and release."
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create and push tag (if missing)
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+          echo "Created and pushed tag $TAG"
+
+      - name: Create ZIP archive
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          mkdir -p release/Toxic_BlackList
+          # Copy all relevant files to the release directory
+          rsync -a --exclude='.git' --exclude='.github' --exclude='release' --exclude='.idea' --exclude='.cursorrules' --exclude='AGENTS.md' --exclude='Docs' . release/Toxic_BlackList/
+          cd release
+          zip -r "../Toxic_BlackList-v${VERSION}.zip" Toxic_BlackList/
+          cd ..
+          echo "Created Toxic_BlackList-v${VERSION}.zip"
+
+      - name: Create GitHub Release
+        if: steps.check.outputs.skip != 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Release ${{ steps.version.outputs.tag }}
+          files: Toxic_BlackList-v${{ steps.version.outputs.version }}.zip
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
