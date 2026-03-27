@@ -65,8 +65,7 @@ function BlackList:EnsureStandaloneDetailsFactionDecor(detailsFrame)
 	if not detailsFrame.blackListFactionWatermark then
 		-- Above ApplyDBMPanelChrome frameBg (BACKGROUND -8); below row text (ARTWORK).
 		local w = detailsFrame:CreateTexture(nil, "BACKGROUND", nil, -4)
-		w:SetSize(176, 176)
-		w:SetAlpha(0.22)
+		w:SetAlpha(0.14)
 		w:SetBlendMode("BLEND")
 		detailsFrame.blackListFactionWatermark = w
 	end
@@ -74,7 +73,8 @@ function BlackList:EnsureStandaloneDetailsFactionDecor(detailsFrame)
 	if wm then
 		wm:SetDrawLayer("BACKGROUND", -4)
 		wm:ClearAllPoints()
-		wm:SetPoint("TOPRIGHT", detailsFrame, "TOPRIGHT", -1, -1)
+		wm:SetPoint("TOPLEFT", detailsFrame, "TOPLEFT", 3, -3)
+		wm:SetPoint("BOTTOMRIGHT", detailsFrame, "BOTTOMRIGHT", -3, 3)
 	end
 	if not detailsFrame.blackListFactionTrimTop then
 		local tTop = detailsFrame:CreateTexture(nil, "OVERLAY", nil, 2)
@@ -456,7 +456,7 @@ function BlackList:ShowStandaloneDetails()
 	local detailsFrame = getglobal("BlackListStandaloneDetailsFrame")
 	if not detailsFrame then
 		-- Same NineSlice frame + title bar as the list and Add Player dialog (ApplyDBMPanelChrome).
-		detailsFrame = U.createChromeParent("BlackListStandaloneDetailsFrame", UIParent, 470, 392)
+		detailsFrame = U.createChromeParent("BlackListStandaloneDetailsFrame", UIParent, 320, 392)
 		detailsFrame:SetClampedToScreen(true)
 		detailsFrame:SetFrameStrata("DIALOG")
 		detailsFrame:SetFrameLevel(250)
@@ -569,7 +569,6 @@ function BlackList:ShowStandaloneDetails()
 			if self.GetSpecificFactionColorRGB then
 				r, g, b = self:GetSpecificFactionColorRGB(id)
 			end
-			wm:SetSize(176, 176)
 			wm:SetColorTexture(r, g, b, 0.18)
 			wm:Show()
 		else

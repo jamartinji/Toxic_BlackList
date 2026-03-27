@@ -245,12 +245,10 @@ function U.applyStandaloneTooltipPlayerColors(tooltip, blackListAddon, player)
 	U.resetGameTooltipToDefault(tooltip)
 
 	local cr, cg, cb = 0.75, 0.75, 0.75
-	if blackListAddon.GetSpecificClassColorRGB then
-		cr, cg, cb = blackListAddon:GetSpecificClassColorRGB(player.class or "")
-	end
 	local fr, fg, fb = 0.12, 0.12, 0.12
 	if blackListAddon.GetSpecificFactionColorRGB then
 		local rr, gg, bb = blackListAddon:GetSpecificFactionColorRGB(player)
+		cr, cg, cb = rr, gg, bb
 		fr, fg, fb = rr * 0.28, gg * 0.28, bb * 0.28
 	end
 
@@ -313,7 +311,7 @@ function U.applyStandaloneTooltipPlayerColors(tooltip, blackListAddon, player)
 			local bh = math.max(6, math.floor((tw * (((1 - (2 / 3)) * srcH) / srcW)) + 0.5))
 			trimBottom:SetSize(tw, bh)
 			trimBottom:ClearAllPoints()
-			trimBottom:SetPoint("TOP", tooltip, "BOTTOM", 0, 6)
+			trimBottom:SetPoint("TOP", tooltip, "BOTTOM", 0, 9)
 			trimBottom:SetAlpha(0.9)
 			trimBottom:Show()
 		else
