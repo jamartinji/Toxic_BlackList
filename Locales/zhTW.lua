@@ -153,6 +153,9 @@ L["MINIMAP_TOOLTIP_RIGHT_CLICK"] = "右鍵：%s"
 L["MINIMAP_TOOLTIP_LEFT_OPTIONS"] = "左鍵：開啟選項"
 L["MINIMAP_TOOLTIP_RIGHT_LIST"] = "右鍵：開啟列表"
 L["REASON_EDIT_HINT"] = "游標移到列上可檢視詳細資訊。按兩下可編輯。"
+L["FILTER_PLACEHOLDER"] = "篩選..."
+L["TOOLTIP_FILTER_TOGGLE_SHOW"] = "顯示篩選"
+L["TOOLTIP_FILTER_TOGGLE_HIDE"] = "隱藏篩選"
 
 -- ---------------------------------------------------------------------------
 -- Help

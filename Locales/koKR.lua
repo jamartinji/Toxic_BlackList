@@ -153,6 +153,9 @@ L["MINIMAP_TOOLTIP_RIGHT_CLICK"] = "오른쪽 클릭: %s"
 L["MINIMAP_TOOLTIP_LEFT_OPTIONS"] = "왼쪽 클릭: 옵션 열기"
 L["MINIMAP_TOOLTIP_RIGHT_LIST"] = "오른쪽 클릭: 목록 열기"
 L["REASON_EDIT_HINT"] = "행에 마우스를 올리면 상세 정보가 보입니다. 더블 클릭으로 편집."
+L["FILTER_PLACEHOLDER"] = "필터..."
+L["TOOLTIP_FILTER_TOGGLE_SHOW"] = "필터 표시"
+L["TOOLTIP_FILTER_TOGGLE_HIDE"] = "필터 숨기기"
 
 -- ---------------------------------------------------------------------------
 -- Help

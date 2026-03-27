@@ -153,6 +153,9 @@ L["MINIMAP_TOOLTIP_RIGHT_CLICK"] = "右键：%s"
 L["MINIMAP_TOOLTIP_LEFT_OPTIONS"] = "左键：打开选项"
 L["MINIMAP_TOOLTIP_RIGHT_LIST"] = "右键：打开列表"
 L["REASON_EDIT_HINT"] = "悬停在行上查看详情。双击行可编辑。"
+L["FILTER_PLACEHOLDER"] = "过滤..."
+L["TOOLTIP_FILTER_TOGGLE_SHOW"] = "显示过滤"
+L["TOOLTIP_FILTER_TOGGLE_HIDE"] = "隐藏过滤"
 
 -- ---------------------------------------------------------------------------
 -- Help

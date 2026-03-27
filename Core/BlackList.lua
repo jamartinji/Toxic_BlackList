@@ -218,39 +218,43 @@ function BlackList:UnitTokenTargetsPlayer(unit)
 		return false
 	end
 	local ok, exists = pcall(UnitExists, unit)
-	if not ok or not exists then
+	if not ok or exists ~= true then
 		return false
 	end
 	local isPl
 	ok, isPl = pcall(UnitIsPlayer, unit)
-	if not ok or not isPl then
+	if not ok or isPl ~= true then
 		return false
 	end
-	ok = pcall(function()
-		return UnitIsUnit(unit, "player")
-	end)
-	if not ok or UnitIsUnit(unit, "player") then
+	ok, exists = pcall(UnitIsUnit, unit, "player")
+	if not ok or exists == true then
 		return false
 	end
 	local targetToken
 	if string.match(unit, "^nameplate%d+$") then
 		local tPlain = unit .. "target"
 		local tHyphen = unit .. "-target"
-		if pcall(UnitExists, tPlain) and UnitExists(tPlain) then
+		local okP, exP = pcall(UnitExists, tPlain)
+		local okH, exH = pcall(UnitExists, tHyphen)
+		if okP and exP == true then
 			targetToken = tPlain
-		elseif pcall(UnitExists, tHyphen) and UnitExists(tHyphen) then
+		elseif okH and exH == true then
 			targetToken = tHyphen
 		else
 			return false
 		end
 	else
 		targetToken = unit .. "target"
-		if not (pcall(UnitExists, targetToken) and UnitExists(targetToken)) then
+		ok, exists = pcall(UnitExists, targetToken)
+		if not ok or exists ~= true then
 			return false
 		end
 	end
 	ok, exists = pcall(UnitIsUnit, targetToken, "player")
-	return ok and exists
+	if ok and exists == true then
+		return true
+	end
+	return false
 end
 
 function BlackList:ScanBlacklistedTargetingPlayer()
@@ -268,7 +272,7 @@ function BlackList:ScanBlacklistedTargetingPlayer()
 	local cooldown = 12
 
 		local function checkUnit(unit)
-		if not self:UnitTokenTargetsPlayer(unit) then
+		if self:UnitTokenTargetsPlayer(unit) ~= true then
 			return
 		end
 		local name = UnitName(unit)
@@ -311,39 +315,94 @@ function BlackList:ScanBlacklistedTargetingPlayer()
 	end
 end
 
+--- Copy API strings to plain literals (matches BlackListData SanitizeApiString; helps list lookups).
+local function sanitizeApiString(s)
+	if s == nil then
+		return ""
+	end
+	return strtrim(string.format("%s", s))
+end
+
+--- True if unit is another player character (not pet/NPC). Hostile nameplates sometimes fail UnitIsPlayer on first frames.
+local function unitIsOtherPlayerCharacter(unitToken)
+	local ok, isPl = pcall(UnitIsPlayer, unitToken)
+	if ok and isPl == true then
+		return true
+	end
+	local okG, guid = pcall(UnitGUID, unitToken)
+	if okG and type(guid) == "string" and strsub(guid, 1, 7) == "Player-" then
+		return true
+	end
+	return false
+end
+
+--- Name + realm from a player GUID when UnitName/UnitFullName are not ready yet (Blizzard pattern; helps hostile nameplates).
+local function getNameRealmFromPlayerGUID(guid)
+	if type(guid) ~= "string" or strsub(guid, 1, 7) ~= "Player-" then
+		return nil, ""
+	end
+	if not GetPlayerInfoByGUID then
+		return nil, ""
+	end
+	local ok, _lc, _ec, _lr, _er, _sex, name, realmName = pcall(GetPlayerInfoByGUID, guid)
+	if not ok or not name then
+		return nil, ""
+	end
+	local n = sanitizeApiString(name)
+	if n == "" then
+		return nil, ""
+	end
+	return n, sanitizeApiString(realmName)
+end
+
 --- Resolve name + realm from a nameplate unit (cross-realm aware).
+--- Order: UnitName (typical on nameplates) -> UnitFullName -> GetPlayerInfoByGUID(UnitGUID) when the unit token has no name yet.
 local function getUnitNameRealmForList(unitToken)
 	if not unitToken then
 		return nil, ""
 	end
 	local name, realm
-	if UnitFullName then
-		local ok, n, r = pcall(UnitFullName, unitToken)
-		if ok and n and strtrim(tostring(n)) ~= "" then
-			name, realm = n, r
+	local ok, n, r = pcall(UnitName, unitToken)
+	if ok and n and sanitizeApiString(n) ~= "" then
+		name, realm = n, r
+	end
+	if not name or sanitizeApiString(name) == "" then
+		if UnitFullName then
+			ok, n, r = pcall(UnitFullName, unitToken)
+			if ok and n and sanitizeApiString(n) ~= "" then
+				name, realm = n, r
+			end
 		end
 	end
-	if not name or strtrim(tostring(name)) == "" then
-		local ok, n, r = pcall(UnitName, unitToken)
-		if ok and n and strtrim(tostring(n)) ~= "" then
-			name, realm = n, r
+	if not name or sanitizeApiString(name) == "" then
+		local okG, guid = pcall(UnitGUID, unitToken)
+		if okG and guid then
+			local gn, gr = getNameRealmFromPlayerGUID(guid)
+			if gn then
+				name, realm = gn, gr
+			end
 		end
 	end
-	if not name or strtrim(tostring(name)) == "" then
+	if not name or sanitizeApiString(name) == "" then
 		return nil, ""
 	end
-	return name, strtrim(tostring(realm or ""))
+	return sanitizeApiString(name), sanitizeApiString(realm)
 end
 
 --- Warn/sound when a blacklisted player's nameplate appears. Caller must ensure UnitExists(unitToken).
 function BlackList:TryNameplateProximityWarn(unitToken)
-	if not unitToken or not UnitExists(unitToken) then
+	if not unitToken then
+		return
+	end
+	local okEx, unitEx = pcall(UnitExists, unitToken)
+	if not okEx or unitEx ~= true then
 		return
 	end
 	if self.MaybeRefreshBlacklistedUnit then
 		self:MaybeRefreshBlacklistedUnit(unitToken)
 	end
-	if not UnitIsPlayer(unitToken) or UnitIsUnit(unitToken, "player") then
+	local okSelf, isSelf = pcall(UnitIsUnit, unitToken, "player")
+	if (okSelf and isSelf == true) or not unitIsOtherPlayerCharacter(unitToken) then
 		return
 	end
 	local name, realm = getUnitNameRealmForList(unitToken)
@@ -364,7 +423,7 @@ function BlackList:TryNameplateProximityWarn(unitToken)
 	if not player then
 		return
 	end
-	local warnKey = name .. "|" .. strtrim(tostring(realm or ""))
+	local warnKey = name .. "|" .. realm
 	local alreadywarned = false
 	local now = GetTime()
 	for key, timepassed in pairs(Already_Warned_For["NAMEPLATE"]) do
@@ -388,7 +447,11 @@ function BlackList:ScheduleNameplateProximityCheck(unitToken)
 		return
 	end
 	local function run()
-		if not unitToken or not UnitExists(unitToken) then
+		if not unitToken then
+			return
+		end
+		local okE, ex = pcall(UnitExists, unitToken)
+		if not okE or ex ~= true then
 			return
 		end
 		self:TryNameplateProximityWarn(unitToken)

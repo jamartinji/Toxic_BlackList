@@ -58,16 +58,21 @@ function BlackList:ShowStandaloneListTooltip(anchor, playerIndex)
 	for i = 1, #dateLines do
 		tipRich(dateLines[i], false)
 	end
+	U.applyStandaloneTooltipPlayerColors(GameTooltip, self, player)
 	GameTooltip:Show()
 end
 
 function BlackList:CreateStandaloneWindow()
-	local frame = U.createChromeParent("BlackListStandaloneFrame", UIParent, 300, 392)
+	local minIconGap = math.max(2, (U.standaloneIconBarGap or 8) - 4)
+	local minBarContentW = (U.standaloneIconBarBtn * 6) + (minIconGap * 5)
+	local minWindowW = math.max(268, minBarContentW + 32)
+	local initialWindowW = math.max(300, minWindowW + 4)
+	local frame = U.createChromeParent("BlackListStandaloneFrame", UIParent, initialWindowW, 392)
 	-- Position like FriendsFrame/CharacterFrame (left side of screen)
 	frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 16, -116)
 	frame:SetClampedToScreen(true)
 	frame.blackListEnableResize = true
-	frame.blackListResizeMinW = 268
+	frame.blackListResizeMinW = minWindowW
 	frame.blackListResizeMinH = 300
 	frame.blackListTitleDraggable = true
 
@@ -103,6 +108,7 @@ function BlackList:CreateStandaloneWindow()
 	iconBar:SetFrameLevel((iconBarShell:GetFrameLevel() or 0) + 20)
 	iconBar:SetPoint("TOPLEFT", iconBarShell, "TOPLEFT", U.iconBarShellPad, -U.iconBarShellPad)
 	iconBar:SetPoint("BOTTOMRIGHT", iconBarShell, "BOTTOMRIGHT", -U.iconBarShellPad, U.iconBarShellPad)
+	local iconGap = math.max(2, (U.standaloneIconBarGap or 8) - 4)
 
 	local listTop = U.iconBarTop - iconBarShellH - 10
 	local listBottomReserve = U.legendBottom + U.legendRowH + 6
@@ -113,11 +119,142 @@ function BlackList:CreateStandaloneWindow()
 	listShell:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, listTop)
 	listShell:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -28, listBottomReserve)
 
+	local currentSearchFilter = ""
+	local function getSearchTextNorm()
+		return strtrim(tostring(currentSearchFilter or "")):lower()
+	end
+	local function matchesSearch(player)
+		local q = getSearchTextNorm()
+		if q == "" then
+			return true
+		end
+		if not player then
+			return false
+		end
+		local fields = {
+			tostring(player.name or ""),
+			tostring(player.realm or ""),
+			tostring(player.class or ""),
+			tostring(player.race or ""),
+			tostring(player.faction or ""),
+			tostring(player.guild or ""),
+			tostring(player.reason or ""),
+		}
+		for i = 1, #fields do
+			if string.lower(fields[i]):find(q, 1, true) then
+				return true
+			end
+		end
+		return false
+	end
+
+	local searchBoxContainer = CreateFrame("Frame", "BlackListStandaloneSearchContainer", listShell, "BackdropTemplate")
+	searchBoxContainer:SetFrameLevel((listShell:GetFrameLevel() or baseLvl) + 4)
+	searchBoxContainer:SetHeight(24)
+	searchBoxContainer:SetPoint("TOPLEFT", listShell, "TOPLEFT", U.listShellPad, -U.listShellPad)
+	searchBoxContainer:SetPoint("TOPRIGHT", listShell, "TOPRIGHT", -U.listShellPad, -U.listShellPad)
+	local searchEditBox, searchPlaceholder
+	local searchVisible = false
+	local okSearchTemplate = pcall(function()
+		searchEditBox = CreateFrame("EditBox", "BlackListStandalone_SearchBox", searchBoxContainer, "SearchBoxTemplate")
+	end)
+	if okSearchTemplate and searchEditBox then
+		searchEditBox:SetPoint("LEFT", 6, 0)
+		searchEditBox:SetPoint("RIGHT", -6, 0)
+		searchEditBox:SetPoint("TOP", 0, 0)
+		searchEditBox:SetPoint("BOTTOM", 0, 0)
+		searchEditBox:SetAutoFocus(false)
+		searchEditBox:SetMaxLetters(80)
+		if searchEditBox.Instructions then
+			searchEditBox.Instructions:SetText(L["FILTER_PLACEHOLDER"] or "Filter...")
+		end
+		searchEditBox:SetScript("OnTextChanged", function(self)
+			if SearchBoxTemplate_OnTextChanged then
+				SearchBoxTemplate_OnTextChanged(self)
+			end
+			local text = self:GetText()
+			currentSearchFilter = (text and text:len() > 0) and text or ""
+			BlackList:UpdateStandaloneUI()
+		end)
+	else
+		searchEditBox = CreateFrame("EditBox", "BlackListStandalone_SearchBox", searchBoxContainer)
+		if searchBoxContainer.SetBackdrop then
+			searchBoxContainer:SetBackdrop({
+				bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+				edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+				tile = true,
+				tileSize = 16,
+				edgeSize = 8,
+				insets = { left = 4, right = 4, top = 2, bottom = 2 },
+			})
+			searchBoxContainer:SetBackdropColor(0.15, 0.15, 0.15, 0.8)
+			if searchBoxContainer.SetBackdropBorderColor then
+				searchBoxContainer:SetBackdropBorderColor(0.35, 0.35, 0.35, 1)
+			end
+		end
+		searchEditBox:SetPoint("LEFT", 8, 0)
+		searchEditBox:SetPoint("RIGHT", -8, 0)
+		searchEditBox:SetPoint("TOP", 0, 0)
+		searchEditBox:SetPoint("BOTTOM", 0, 0)
+		searchEditBox:SetFontObject("GameFontHighlight")
+		searchEditBox:SetAutoFocus(false)
+		searchEditBox:SetMaxLetters(80)
+		searchPlaceholder = searchEditBox:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+		searchPlaceholder:SetPoint("LEFT", searchEditBox, "LEFT", 0, 0)
+		searchPlaceholder:SetText(L["FILTER_PLACEHOLDER"] or "Filter...")
+		searchPlaceholder:SetTextColor(0.5, 0.5, 0.5, 0.8)
+		searchEditBox:SetScript("OnTextChanged", function(self)
+			local text = self:GetText()
+			if searchPlaceholder then
+				searchPlaceholder:SetShown(not text or text:len() == 0)
+			end
+			currentSearchFilter = (text and text:len() > 0) and text or ""
+			BlackList:UpdateStandaloneUI()
+		end)
+		searchEditBox:SetScript("OnEditFocusGained", function()
+			if searchPlaceholder then
+				searchPlaceholder:Hide()
+			end
+		end)
+		searchEditBox:SetScript("OnEditFocusLost", function(self)
+			if searchPlaceholder and (not self:GetText() or self:GetText():len() == 0) then
+				searchPlaceholder:Show()
+			end
+		end)
+	end
+	searchEditBox:SetScript("OnEscapePressed", function(self)
+		self:ClearFocus()
+		self:SetText("")
+		currentSearchFilter = ""
+		BlackList:UpdateStandaloneUI()
+	end)
+	frame.blackListStandaloneSearchFilterGet = getSearchTextNorm
+	frame.blackListStandaloneMatchesSearch = matchesSearch
+
 	-- List: WowScrollBoxList + MinimalScrollBar (same pattern as EPF skins in options)
 	local listContainer = CreateFrame("Frame", "BlackListStandaloneListContainer", listShell)
 	listContainer:SetFrameLevel((listShell:GetFrameLevel() or 0) + 4)
-	listContainer:SetPoint("TOPLEFT", listShell, "TOPLEFT", U.listShellPad, -U.listShellPad)
+	listContainer:SetPoint("TOPLEFT", searchBoxContainer, "BOTTOMLEFT", 0, -6)
 	listContainer:SetPoint("BOTTOMRIGHT", listShell, "BOTTOMRIGHT", -U.listShellPad, U.listShellPad)
+	local function applySearchVisibility()
+		if searchVisible then
+			searchBoxContainer:Show()
+			listContainer:ClearAllPoints()
+			listContainer:SetPoint("TOPLEFT", searchBoxContainer, "BOTTOMLEFT", 0, -6)
+			listContainer:SetPoint("BOTTOMRIGHT", listShell, "BOTTOMRIGHT", -U.listShellPad, U.listShellPad)
+		else
+			searchBoxContainer:Hide()
+			listContainer:ClearAllPoints()
+			listContainer:SetPoint("TOPLEFT", listShell, "TOPLEFT", U.listShellPad, -U.listShellPad)
+			listContainer:SetPoint("BOTTOMRIGHT", listShell, "BOTTOMRIGHT", -U.listShellPad, U.listShellPad)
+			if searchEditBox then
+				searchEditBox:ClearFocus()
+				searchEditBox:SetText("")
+			end
+			currentSearchFilter = ""
+		end
+		BlackList:UpdateStandaloneUI()
+	end
 
 	local legendBar = CreateFrame("Frame", "BlackListStandaloneLegendBar", frame)
 	legendBar:SetFrameLevel(baseLvl + 20)
@@ -159,17 +296,56 @@ function BlackList:CreateStandaloneWindow()
 
 	local function InitStandaloneListRow(button, elementData)
 		U.applyEPFListRowStyle(button)
+		-- 9-slice list atlases look off-center at full bleed on short rows; symmetric insets + centered text.
+		local hInset, vInset = 2, 1
+		if button.SelectedTexture then
+			button.SelectedTexture:ClearAllPoints()
+			button.SelectedTexture:SetPoint("TOPLEFT", button, "TOPLEFT", hInset, -vInset)
+			button.SelectedTexture:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -hInset, vInset)
+		end
+		local highlight = button.GetHighlightTexture and button:GetHighlightTexture()
+		if highlight then
+			highlight:ClearAllPoints()
+			highlight:SetPoint("TOPLEFT", button, "TOPLEFT", hInset, -vInset)
+			highlight:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -hInset, vInset)
+		end
 		if not button.Text then
 			button.Text = button:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-			button.Text:SetPoint("TOPLEFT", 10, -4)
-			button.Text:SetPoint("TOPRIGHT", -10, -4)
-			button.Text:SetJustifyH("LEFT")
 		end
-		local index = elementData.index
+		if not button.FactionIcon then
+			button.FactionIcon = button:CreateTexture(nil, "ARTWORK")
+			-- Atlas source is 22x28; keep ratio when constraining to 22 height => ~17x22.
+			button.FactionIcon:SetSize(14, 18)
+			button.FactionIcon:SetPoint("LEFT", button, "LEFT", 10, 0)
+		end
+		button.Text:ClearAllPoints()
+		button.Text:SetPoint("TOPLEFT", button, "TOPLEFT", 33, 0)
+		button.Text:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -10, 0)
+		button.Text:SetJustifyH("LEFT")
+		button.Text:SetJustifyV("MIDDLE")
+		local index = elementData.playerIndex or elementData.index
 		button:SetID(index)
 		local player = BlackList:GetPlayerByIndex(index)
 		if player then
 			button.Text:SetText(BlackList:FormatStandaloneListLine(player))
+			local fid = BlackList.GetFactionIdForPlayer and BlackList:GetFactionIdForPlayer(player) or nil
+			if fid == 1 or fid == 2 then
+				local atlas = (fid == 1) and "communities-create-button-wow-alliance" or "communities-create-button-wow-horde"
+				local okAtlas = pcall(function()
+					button.FactionIcon:SetAtlas(atlas)
+				end)
+				if okAtlas and button.FactionIcon:GetAtlas() then
+					button.FactionIcon:SetVertexColor(1, 1, 1, 1)
+					button.FactionIcon:Show()
+				else
+					button.FactionIcon:Hide()
+				end
+			else
+				button.FactionIcon:Hide()
+			end
+		else
+			button.Text:SetText("")
+			button.FactionIcon:Hide()
 		end
 		local sel = BlackList:GetSelectedBlackList()
 		if button.SelectedTexture then
@@ -207,6 +383,9 @@ function BlackList:CreateStandaloneWindow()
 				U.standaloneListClickState.index = idx
 				BlackList:SetSelectedBlackList(idx)
 				BlackList:UpdateStandaloneUI()
+				if detailsFrame and detailsFrame.Hide then
+					detailsFrame:Hide()
+				end
 			end
 		end)
 	end
@@ -222,7 +401,7 @@ function BlackList:CreateStandaloneWindow()
 	-- Top bar: [+] [target] [edit] [−] … [options] (legend below)
 	local addBtn = CreateFrame("Button", "BlackListStandalone_AddButton", iconBar)
 	local texAdd = U.styleStandaloneIconButton(addBtn)
-	U.applyStandaloneAtlasTexture(texAdd, { "common-icon-plus" }, "Interface\\Buttons\\UI-PlusButton-Up", nil)
+	U.applyStandaloneAtlasTexture(texAdd, { "GreenCross" }, "Interface\\Buttons\\UI-PlusButton-Up", nil)
 	U.setStandaloneIconTint(texAdd, 0.2, 0.95, 0.35, 1)
 	addBtn:SetPoint("LEFT", iconBar, "LEFT", 0, 0)
 	addBtn:SetScript("OnEnter", function(self)
@@ -236,11 +415,11 @@ function BlackList:CreateStandaloneWindow()
 	end)
 
 	local addTargetBtn = CreateFrame("Button", "BlackListStandalone_AddTargetButton", iconBar)
-	local texTgt = U.styleStandaloneIconButton(addTargetBtn, 30)
+	local texTgt = U.styleStandaloneIconButton(addTargetBtn)
 	texTgt:SetTexture(U.assetsAim)
 	texTgt:SetTexCoord(0, 1, 0, 1)
 	U.setStandaloneIconTint(texTgt, 1, 1, 1, 1)
-	addTargetBtn:SetPoint("LEFT", addBtn, "RIGHT", U.standaloneIconBarGap, 0)
+	addTargetBtn:SetPoint("LEFT", addBtn, "RIGHT", iconGap, 0)
 	addTargetBtn:SetScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 		GameTooltip:AddLine(L["ADD_TARGET"] or "", 1, 1, 1, true)
@@ -254,10 +433,9 @@ function BlackList:CreateStandaloneWindow()
 
 	local editBtn = CreateFrame("Button", "BlackListStandalone_EditButton", iconBar)
 	local texEdit = U.styleStandaloneIconButton(editBtn)
-	texEdit:SetTexture(U.assetsPencil)
-	texEdit:SetTexCoord(0, 1, 0, 1)
+	U.applyStandaloneAtlasTexture(texEdit, { "poi-workorders" }, U.assetsPencil, nil)
 	U.setStandaloneIconTint(texEdit, 1, 1, 1, 1)
-	editBtn:SetPoint("LEFT", addTargetBtn, "RIGHT", U.standaloneIconBarGap, 0)
+	editBtn:SetPoint("LEFT", addTargetBtn, "RIGHT", iconGap, 0)
 	editBtn:SetScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 		local tip = L["TOOLTIP_EDIT_BTN"] or (L["ROW_MENU_EDIT"] or "Edit"):gsub("…", ""):gsub("%.%.%.$", "")
@@ -285,9 +463,9 @@ function BlackList:CreateStandaloneWindow()
 
 	local removeBtn = CreateFrame("Button", "BlackListStandalone_RemoveButton", iconBar)
 	local texRem = U.styleStandaloneIconButton(removeBtn)
-	U.applyStandaloneAtlasTexture(texRem, { "common-icon-minus" }, "Interface\\Buttons\\UI-MinusButton-Up", nil)
+	U.applyStandaloneAtlasTexture(texRem, { "Islands-MarkedArea" }, "Interface\\Buttons\\UI-MinusButton-Up", nil)
 	U.setStandaloneIconTint(texRem, 0.95, 0.28, 0.28, 1)
-	removeBtn:SetPoint("LEFT", editBtn, "RIGHT", U.standaloneIconBarGap, 0)
+	removeBtn:SetPoint("LEFT", editBtn, "RIGHT", iconGap, 0)
 	removeBtn:SetScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 		GameTooltip:AddLine(L["REMOVE_PLAYER"] or "", 1, 1, 1, true)
@@ -305,10 +483,36 @@ function BlackList:CreateStandaloneWindow()
 		end
 	end)
 
+	local searchBtn = CreateFrame("Button", "BlackListStandalone_SearchToggleButton", iconBar)
+	local texSearch = U.styleStandaloneIconButton(searchBtn)
+	U.applyStandaloneAtlasTexture(texSearch, { "loreobject-32x32" }, U.assetsSearch or "Interface\\Buttons\\UI-Searchbox-Icon", nil)
+	U.setStandaloneIconTint(texSearch, 1, 1, 1, 1)
+	searchBtn:SetPoint("LEFT", removeBtn, "RIGHT", iconGap, 0)
+	searchBtn:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		local key = searchVisible and "HIDE" or "SHOW"
+		local txt = L["TOOLTIP_FILTER_TOGGLE_" .. key] or (searchVisible and "Hide filter" or "Show filter")
+		GameTooltip:AddLine(txt, 1, 1, 1, false)
+		GameTooltip:Show()
+	end)
+	searchBtn:SetScript("OnLeave", GameTooltip_Hide)
+	searchBtn:SetScript("OnClick", function(self)
+		searchVisible = not searchVisible
+		applySearchVisibility()
+		if GameTooltip and GameTooltip:IsOwned(self) then
+			GameTooltip:Hide()
+			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+			local key = searchVisible and "HIDE" or "SHOW"
+			local txt = L["TOOLTIP_FILTER_TOGGLE_" .. key] or (searchVisible and "Hide filter" or "Show filter")
+			GameTooltip:AddLine(txt, 1, 1, 1, false)
+			GameTooltip:Show()
+		end
+	end)
+
 	local optionsBtn = CreateFrame("Button", "BlackListStandalone_OptionsButton", iconBar)
 	local texOpt = U.styleStandaloneIconButton(optionsBtn)
-	U.applyStandaloneAtlasTexture(texOpt, { "common-icon-settings", "common-icon-gear" }, "Interface\\Icons\\Trade_Engineering", nil)
-	optionsBtn:SetPoint("RIGHT", iconBar, "RIGHT", 0, 0)
+	U.applyStandaloneAtlasTexture(texOpt, { "mechagon-projects" }, "Interface\\Icons\\Trade_Engineering", nil)
+	optionsBtn:SetPoint("LEFT", searchBtn, "RIGHT", iconGap, 0)
 	optionsBtn:SetScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 		GameTooltip:AddLine(L["OPTIONS"] or "Options", 1, 1, 1, true)
@@ -324,22 +528,16 @@ function BlackList:CreateStandaloneWindow()
 	addTargetBtn:SetFrameLevel(barLvl)
 	editBtn:SetFrameLevel(barLvl)
 	removeBtn:SetFrameLevel(barLvl)
+	searchBtn:SetFrameLevel(barLvl)
 	optionsBtn:SetFrameLevel(barLvl)
 
 	local divLvl = barLvl - 1
-	U.addStandaloneIconBarDivider(iconBar, addBtn, divLvl)
-	U.addStandaloneIconBarDivider(iconBar, addTargetBtn, divLvl)
-	U.addStandaloneIconBarDivider(iconBar, editBtn, divLvl)
-	U.addStandaloneIconBarDivider(iconBar, removeBtn, divLvl)
-	do
-		local d = CreateFrame("Frame", nil, iconBar)
-		d:SetFrameLevel(divLvl)
-		d:SetSize(1, math.max(10, U.standaloneIconBarBtn - 10))
-		local tex = d:CreateTexture(nil, "ARTWORK")
-		tex:SetAllPoints()
-		tex:SetColorTexture(0.48, 0.48, 0.52, 0.82)
-		d:SetPoint("CENTER", optionsBtn, "LEFT", -math.max(8, math.floor(U.standaloneIconBarGap / 2)), 0)
-	end
+	U.addStandaloneIconBarDivider(iconBar, addBtn, divLvl, iconGap)
+	U.addStandaloneIconBarDivider(iconBar, addTargetBtn, divLvl, iconGap)
+	U.addStandaloneIconBarDivider(iconBar, editBtn, divLvl, iconGap)
+	U.addStandaloneIconBarDivider(iconBar, removeBtn, divLvl, iconGap)
+	U.addStandaloneIconBarDivider(iconBar, searchBtn, divLvl, iconGap)
+	applySearchVisibility()
 	
 end
 
@@ -384,6 +582,53 @@ function BlackList:UpdateStandaloneUI()
 	if not scrollBox or not CreateDataProvider then
 		return
 	end
+	local matchesSearch = mainFrame and mainFrame.blackListStandaloneMatchesSearch
+	local filtered = {}
+	if type(matchesSearch) == "function" then
+		for i = 1, numBlackLists do
+			local p = self:GetPlayerByIndex(i)
+			if matchesSearch(p) then
+				filtered[#filtered + 1] = i
+			end
+		end
+	else
+		for i = 1, numBlackLists do
+			filtered[#filtered + 1] = i
+		end
+	end
+
+	local visibleCount = #filtered
+	if visibleCount > 0 then
+		local inFiltered = false
+		for i = 1, visibleCount do
+			if filtered[i] == selectedBlackList then
+				inFiltered = true
+				break
+			end
+		end
+		if not inFiltered then
+			self:SetSelectedBlackList(filtered[1])
+			selectedBlackList = filtered[1]
+		end
+	else
+		self:SetSelectedBlackList(0)
+		selectedBlackList = 0
+		local detailsFrame = getglobal("BlackListStandaloneDetailsFrame")
+		if detailsFrame and detailsFrame:IsShown() then
+			if detailsFrame.SaveReason then
+				detailsFrame.SaveReason()
+			end
+			detailsFrame:Hide()
+		end
+	end
+	local removeBtn = getglobal("BlackListStandalone_RemoveButton")
+	if removeBtn then
+		if visibleCount > 0 then removeBtn:Enable() else removeBtn:Disable() end
+	end
+	local editBtn = getglobal("BlackListStandalone_EditButton")
+	if editBtn then
+		if visibleCount > 0 then editBtn:Enable() else editBtn:Disable() end
+	end
 
 	local prevScrollKnown = false
 	local prevPct
@@ -398,8 +643,8 @@ function BlackList:UpdateStandaloneUI()
 	end
 
 	local dp = CreateDataProvider()
-	for i = 1, numBlackLists do
-		dp:Insert({ index = i })
+	for i = 1, visibleCount do
+		dp:Insert({ index = i, playerIndex = filtered[i] })
 	end
 	scrollBox:SetDataProvider(dp)
 

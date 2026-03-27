@@ -4,6 +4,12 @@ All notable changes to **Toxic BlackList** are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.3] - 2026-03-27
+
+### Fixed
+
+- **secret-value taint**: Avoid comparing raw realm strings from `UnitName` / `GetRealmName` and avoid boolean tests on API results (`UnitExists`, `UnitIsPlayer`, `UnitIsUnit`) in `CollectPlayerFieldsFromUnit`, proximity/nameplate scans, and context-menu unit resolution — prevents Lua errors when nameplates or “targeting you” alerts run.
+
 ## [1.0.2] - 2026-03-26
 
 ### Added

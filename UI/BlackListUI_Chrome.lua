@@ -87,9 +87,10 @@ function BlackList:ApplyDBMPanelChrome(frame, initialTitle, titleFontStringGloba
 	frameHeader:SetPoint("TOPRIGHT", -30, -2)
 	local fsName = titleFontStringGlobalName or "BlackList_FrameTitleText"
 	local titleFs = frameHeader:CreateFontString(fsName, "ARTWORK", "GameFontNormal")
-	titleFs:SetPoint("TOP", frameHeader, 0, -6)
-	titleFs:SetPoint("LEFT")
-	titleFs:SetPoint("RIGHT")
+	titleFs:ClearAllPoints()
+	titleFs:SetPoint("TOPLEFT", frameHeader, "TOPLEFT", 6, -6)
+	titleFs:SetPoint("TOPRIGHT", frameHeader, "TOPRIGHT", -6, -6)
+	titleFs:SetJustifyH("LEFT")
 	titleFs:SetText(initialTitle or "")
 	frame.BlackListTitleText = titleFs
 	frame.blackListTitleDragHeader = frameHeader

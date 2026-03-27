@@ -153,6 +153,9 @@ L["MINIMAP_TOOLTIP_RIGHT_CLICK"] = "Clic droit : %s"
 L["MINIMAP_TOOLTIP_LEFT_OPTIONS"] = "Clic gauche : ouvrir les options"
 L["MINIMAP_TOOLTIP_RIGHT_LIST"] = "Clic droit : ouvrir la liste"
 L["REASON_EDIT_HINT"] = "Survolez une ligne pour les détails. Double-clic pour modifier."
+L["FILTER_PLACEHOLDER"] = "Filtrer..."
+L["TOOLTIP_FILTER_TOGGLE_SHOW"] = "Afficher le filtre"
+L["TOOLTIP_FILTER_TOGGLE_HIDE"] = "Masquer le filtre"
 
 -- ---------------------------------------------------------------------------
 -- Help
