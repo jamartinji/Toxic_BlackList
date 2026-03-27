@@ -2,6 +2,8 @@ local _, Addon = ...
 local L = Addon.L
 local U = Addon.UI
 
+local applyTrimDecor
+
 --- Insert mute checkbox for layouts created before the muted row existed.
 function BlackList:InsertMutedRowInDetails(detailsFrame)
 	if not detailsFrame or getglobal("BlackListStandaloneDetails_MutedCb") then
@@ -46,6 +48,171 @@ function BlackList:FormatPlayerDetailsStatLine(player)
 	return self:FormatPlayerDetailsMainBlock(player)
 end
 
+--- Faction watermark (Character Create atlas), top-right of edit window.
+function BlackList:EnsureStandaloneDetailsFactionDecor(detailsFrame)
+	if not detailsFrame then
+		return
+	end
+	local oldSmall = _G["BlackListStandaloneDetails_FactionIcon"]
+	if oldSmall and oldSmall.Hide then
+		oldSmall:Hide()
+	end
+	local oldRace = _G["BlackListStandaloneDetails_RaceIcon"]
+	if oldRace and oldRace.Hide then
+		oldRace:Hide()
+	end
+	detailsFrame.blackListRaceCornerIcon = nil
+	if not detailsFrame.blackListFactionWatermark then
+		-- Above ApplyDBMPanelChrome frameBg (BACKGROUND -8); below row text (ARTWORK).
+		local w = detailsFrame:CreateTexture(nil, "BACKGROUND", nil, -4)
+		w:SetAlpha(0.14)
+		w:SetBlendMode("BLEND")
+		detailsFrame.blackListFactionWatermark = w
+	end
+	local wm = detailsFrame.blackListFactionWatermark
+	if wm then
+		wm:SetDrawLayer("BACKGROUND", -4)
+		wm:ClearAllPoints()
+		wm:SetPoint("TOPLEFT", detailsFrame, "TOPLEFT", 3, -3)
+		wm:SetPoint("BOTTOMRIGHT", detailsFrame, "BOTTOMRIGHT", -3, 3)
+	end
+	if not detailsFrame.blackListFactionTrimTop then
+		local tTop = detailsFrame:CreateTexture(nil, "OVERLAY", nil, 2)
+		tTop:SetAlpha(0.9)
+		detailsFrame.blackListFactionTrimTop = tTop
+	end
+	if not detailsFrame.blackListFactionTrimBottom then
+		local tBottom = detailsFrame:CreateTexture(nil, "OVERLAY", nil, 2)
+		tBottom:SetAlpha(0.9)
+		detailsFrame.blackListFactionTrimBottom = tBottom
+	end
+	if not detailsFrame.blackListFactionTrimHooked and detailsFrame.HookScript then
+		detailsFrame.blackListFactionTrimHooked = true
+		detailsFrame:HookScript("OnSizeChanged", function(self)
+			local cfg = self.blackListFactionTrimCfg
+			if cfg and applyTrimDecor then
+				applyTrimDecor(self, cfg)
+			end
+		end)
+	end
+end
+
+local function getScenarioTitleAtlasForFaction(self, player)
+	if not self or not player or not self.GetFactionIdForPlayer then
+		return nil
+	end
+	local id = self:GetFactionIdForPlayer(player)
+	if id == 1 then
+		return "AllianceScenario-TitleBG"
+	elseif id == 2 then
+		return "HordeScenario-TitleBG"
+	end
+	return "jailerstower-scenario-TitleBG"
+end
+
+applyTrimDecor = function(frame, cfg)
+	if not frame or not cfg then
+		return
+	end
+	local top = frame.blackListFactionTrimTop
+	local bottom = frame.blackListFactionTrimBottom
+	if not top then
+		return
+	end
+	local atlas = cfg.atlas
+	if not atlas or atlas == "" then
+		frame.blackListFactionTrimAtlas = nil
+		top:Hide()
+		if bottom then
+			bottom:Hide()
+		end
+		return
+	end
+	local okTop = pcall(function()
+		top:SetAtlas(atlas)
+	end)
+	local okBottom = true
+	if bottom then
+		okBottom = pcall(function()
+			bottom:SetAtlas(atlas)
+		end)
+	end
+	if not okTop or not okBottom or not top:GetAtlas() then
+		frame.blackListFactionTrimAtlas = nil
+		top:Hide()
+		if bottom then
+			bottom:Hide()
+		end
+		return
+	end
+
+	local srcW, srcH = 467, 141
+	if C_Texture and C_Texture.GetAtlasInfo then
+		local ok, info = pcall(C_Texture.GetAtlasInfo, atlas)
+		if ok and info and info.width and info.height and info.width > 0 and info.height > 0 then
+			srcW, srcH = info.width, info.height
+		end
+	end
+
+	local width = cfg.width or 380
+	local topFrom = cfg.topFrom or 0
+	local topTo = cfg.topTo or 0.36
+	local bottomFrom = cfg.bottomFrom or (2 / 3)
+	local bottomTo = cfg.bottomTo or 1
+	local enableBottom = (cfg.enableBottom == true)
+	if topTo <= topFrom or (enableBottom and bottomTo <= bottomFrom) then
+		top:Hide()
+		if bottom then
+			bottom:Hide()
+		end
+		return
+	end
+
+	local topH = math.max(6, math.floor((width * (((topTo - topFrom) * srcH) / srcW)) + 0.5))
+	top:SetTexCoord(0, 1, topFrom, topTo)
+	top:SetSize(width, topH)
+	top:ClearAllPoints()
+	top:SetPoint("BOTTOM", frame, "TOP", 0, cfg.topOffset or -32)
+	if enableBottom and bottom then
+		local bottomH = math.max(6, math.floor((width * (((bottomTo - bottomFrom) * srcH) / srcW)) + 0.5))
+		bottom:SetTexCoord(0, 1, bottomFrom, bottomTo)
+		bottom:SetSize(width, bottomH)
+		bottom:ClearAllPoints()
+		bottom:SetPoint("TOP", frame, "BOTTOM", 0, cfg.bottomOffset or 38)
+		bottom:Show()
+	elseif bottom then
+		bottom:Hide()
+	end
+	if cfg.alpha then
+		top:SetAlpha(cfg.alpha)
+		if bottom then
+			bottom:SetAlpha(cfg.alpha)
+		end
+	end
+	frame.blackListFactionTrimAtlas = atlas
+	top:Show()
+end
+
+function BlackList:ApplyStandaloneDetailsFactionTrim(detailsFrame, player)
+	if not detailsFrame then
+		return
+	end
+	local atlas = getScenarioTitleAtlasForFaction(self, player)
+	detailsFrame.blackListFactionTrimCfg = {
+		atlas = atlas,
+		width = 380,
+		topFrom = 0,
+		topTo = 0.36,
+		bottomFrom = 2 / 3,
+		bottomTo = 1,
+		topOffset = -32,
+		bottomOffset = 38,
+		enableBottom = false,
+		alpha = 0.9,
+	}
+	applyTrimDecor(detailsFrame, detailsFrame.blackListFactionTrimCfg)
+end
+
 --- Build detail rows, per-row tooltips, and Save button (layout v2).
 function BlackList:CreateStandaloneDetailsLayout(detailsFrame)
 	if not detailsFrame or detailsFrame.blackListDetailsLayoutV2 then
@@ -53,6 +220,7 @@ function BlackList:CreateStandaloneDetailsLayout(detailsFrame)
 	end
 	if getglobal("BlackListStandaloneDetails_Line1") then
 		detailsFrame.blackListDetailsLayoutV2 = true
+		self:EnsureStandaloneDetailsFactionDecor(detailsFrame)
 		return
 	end
 
@@ -79,7 +247,7 @@ function BlackList:CreateStandaloneDetailsLayout(detailsFrame)
 	end
 
 	local padX = 16
-	local y0 = -64
+	local y0 = -38
 	local prev = detailsFrame
 	local rowW = (detailsFrame.blackListDesiredWidth or 300) - padX * 2
 
@@ -274,6 +442,9 @@ function BlackList:CreateStandaloneDetailsLayout(detailsFrame)
 			end
 		end)
 	end
+
+	self:EnsureStandaloneDetailsFactionDecor(detailsFrame)
+
 	detailsFrame.blackListDetailsLayoutV2 = true
 end
 
@@ -285,13 +456,13 @@ function BlackList:ShowStandaloneDetails()
 	local detailsFrame = getglobal("BlackListStandaloneDetailsFrame")
 	if not detailsFrame then
 		-- Same NineSlice frame + title bar as the list and Add Player dialog (ApplyDBMPanelChrome).
-		detailsFrame = U.createChromeParent("BlackListStandaloneDetailsFrame", UIParent, 340, 392)
+		detailsFrame = U.createChromeParent("BlackListStandaloneDetailsFrame", UIParent, 320, 392)
 		detailsFrame:SetClampedToScreen(true)
 		detailsFrame:SetFrameStrata("DIALOG")
 		detailsFrame:SetFrameLevel(250)
 		detailsFrame.blackListEnableResize = true
-		detailsFrame.blackListResizeMinW = 280
-		detailsFrame.blackListResizeMinH = 280
+		detailsFrame.blackListResizeMinW = 320
+		detailsFrame.blackListResizeMinH = 380
 		detailsFrame.blackListTitleDraggable = true
 		self:ApplyDBMPanelChrome(detailsFrame, L["WINDOW_TITLE_EDIT"] or "Edit", "BlackListStandaloneDetails_Title")
 		U.anchorStandaloneDetailsFrame(detailsFrame)
@@ -316,6 +487,7 @@ function BlackList:ShowStandaloneDetails()
 	if detailsFrame and not getglobal("BlackListStandaloneDetails_MutedCb") and getglobal("BlackListStandaloneDetails_BottomRow") then
 		self:InsertMutedRowInDetails(detailsFrame)
 	end
+	self:EnsureStandaloneDetailsFactionDecor(detailsFrame)
 
 	-- Save previous player's reason before showing new one
 	if detailsFrame.SaveReason and detailsFrame.currentPlayerIndex then
@@ -389,6 +561,21 @@ function BlackList:ShowStandaloneDetails()
 		reasonText:SetText(player["reason"] or "")
 	end
 
+	local wm = detailsFrame.blackListFactionWatermark
+	if wm then
+		local id = self.GetFactionIdForPlayer and self:GetFactionIdForPlayer(player)
+		if id == 1 or id == 2 then
+			local r, g, b = 0.75, 0.75, 0.75
+			if self.GetSpecificFactionColorRGB then
+				r, g, b = self:GetSpecificFactionColorRGB(id)
+			end
+			wm:SetColorTexture(r, g, b, 0.18)
+			wm:Show()
+		else
+			wm:Hide()
+		end
+	end
+	self:ApplyStandaloneDetailsFactionTrim(detailsFrame, player)
 	U.anchorStandaloneDetailsFrame(detailsFrame)
 	U.safeStopMovingOrSizing(detailsFrame)
 	U.reapplyPanelSize(detailsFrame)

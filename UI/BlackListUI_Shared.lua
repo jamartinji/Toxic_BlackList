@@ -29,7 +29,7 @@ U.floatBtnSizeMin = 32
 U.floatBtnSizeMax = 128
 U.floatBtnDefaultSize = 64
 U.standaloneIconTex = 24
-U.iconBarTop = -54
+U.iconBarTop = -38
 U.iconBarShellPad = 6
 U.listShellPad = 4
 U.sectionBackdrop = {
@@ -44,6 +44,7 @@ U.legendBottom = 10
 U.legendRowH = 52
 U.assetsPencil = mp .. "pencil.png"
 U.assetsAim = mp .. "aim.png"
+U.assetsSearch = mp .. "search.png"
 U.assetsIcon = mp .. "bl-icon.png"
 U.assetsButton = mp .. "bl-button.png"
 
@@ -122,8 +123,24 @@ function U.applyStandaloneSectionBackdrop(f)
 	end
 end
 
+--- Shared top decoration config for evergreen scenario title background.
+function U.applyEvergreenTopDecor(frame, opts)
+	if not frame then
+		return
+	end
+	opts = opts or {}
+	frame.blackListTopDecorAtlas = "evergreen-scenario-titlebg"
+	frame.blackListTopDecorSrcW = 350
+	frame.blackListTopDecorSrcH = 165
+	frame.blackListTopDecorWidth = opts.width or 300
+	frame.blackListTopDecorFromY = opts.fromY or 0
+	frame.blackListTopDecorToY = opts.toY or 0.36
+	frame.blackListTopDecorOffsetY = opts.offsetY or -30
+	frame.blackListTopDecorAlpha = opts.alpha or 0.9
+end
+
 --- Vertical line between icon-bar buttons (centered in the gap).
-function U.addStandaloneIconBarDivider(iconBar, rightOfButton, frameLevel)
+function U.addStandaloneIconBarDivider(iconBar, rightOfButton, frameLevel, gapOverride)
 	if not iconBar or not rightOfButton then
 		return
 	end
@@ -133,7 +150,8 @@ function U.addStandaloneIconBarDivider(iconBar, rightOfButton, frameLevel)
 	local t = d:CreateTexture(nil, "ARTWORK")
 	t:SetAllPoints()
 	t:SetColorTexture(0.48, 0.48, 0.52, 0.82)
-	local half = math.floor(U.standaloneIconBarGap / 2)
+	local gap = gapOverride or U.standaloneIconBarGap
+	local half = math.floor(gap / 2)
 	d:SetPoint("CENTER", rightOfButton, "RIGHT", half, 0)
 	return d
 end
@@ -158,6 +176,150 @@ function U.showStandaloneHelpTooltip(anchor)
 		end
 	end
 	GameTooltip:Show()
+end
+
+function U.resetGameTooltipToDefault(tooltip)
+	if not tooltip then
+		return
+	end
+	pcall(function()
+		if SharedTooltip_SetBackdropStyle then
+			SharedTooltip_SetBackdropStyle(tooltip, nil)
+		end
+	end)
+	pcall(function()
+		local bg = TOOLTIP_DEFAULT_BACKGROUND_COLOR
+		if tooltip.NineSlice and tooltip.NineSlice.SetCenterColor then
+			if bg then
+				tooltip.NineSlice:SetCenterColor(bg:GetRGBA())
+			else
+				tooltip.NineSlice:SetCenterColor(0.09, 0.09, 0.09, 0.78)
+			end
+		elseif tooltip.SetBackdropColor then
+			if bg then
+				tooltip:SetBackdropColor(bg:GetRGBA())
+			else
+				tooltip:SetBackdropColor(0.09, 0.09, 0.09, 0.78)
+			end
+		end
+	end)
+	pcall(function()
+		local bd = TOOLTIP_DEFAULT_COLOR
+		if tooltip.SetBackdropBorderColor then
+			if bd then
+				tooltip:SetBackdropBorderColor(bd:GetRGBA())
+			else
+				tooltip:SetBackdropBorderColor(0.5, 0.5, 0.5, 1)
+			end
+		end
+		if tooltip.NineSlice and tooltip.NineSlice.SetBorderColor and bd then
+			tooltip.NineSlice:SetBorderColor(bd:GetRGBA())
+		end
+	end)
+	if tooltip.blackListFactionTrimTop then
+		tooltip.blackListFactionTrimTop:Hide()
+	end
+	if tooltip.blackListFactionTrimBottom then
+		tooltip.blackListFactionTrimBottom:Hide()
+	end
+end
+
+function U.ensureStandaloneTooltipColorHook()
+	if not GameTooltip or GameTooltip.blackListTooltipColorHooked then
+		return
+	end
+	GameTooltip.blackListTooltipColorHooked = true
+	GameTooltip:HookScript("OnHide", function(self)
+		if self.blackListTooltipPlayerStyled then
+			self.blackListTooltipPlayerStyled = nil
+			U.resetGameTooltipToDefault(self)
+		end
+	end)
+end
+
+function U.applyStandaloneTooltipPlayerColors(tooltip, blackListAddon, player)
+	if not tooltip or not blackListAddon or not player then
+		return
+	end
+	U.ensureStandaloneTooltipColorHook()
+	U.resetGameTooltipToDefault(tooltip)
+
+	local cr, cg, cb = 0.75, 0.75, 0.75
+	local fr, fg, fb = 0.12, 0.12, 0.12
+	if blackListAddon.GetSpecificFactionColorRGB then
+		local rr, gg, bb = blackListAddon:GetSpecificFactionColorRGB(player)
+		cr, cg, cb = rr, gg, bb
+		fr, fg, fb = rr * 0.28, gg * 0.28, bb * 0.28
+	end
+
+	pcall(function()
+		if tooltip.NineSlice and tooltip.NineSlice.SetCenterColor then
+			tooltip.NineSlice:SetCenterColor(fr, fg, fb, 0.95)
+		end
+		if tooltip.SetBackdropColor then
+			tooltip:SetBackdropColor(fr, fg, fb, 0.95)
+		end
+	end)
+	pcall(function()
+		if tooltip.NineSlice and tooltip.NineSlice.SetBorderColor then
+			tooltip.NineSlice:SetBorderColor(cr, cg, cb, 1)
+		end
+		if tooltip.SetBackdropBorderColor then
+			tooltip:SetBackdropBorderColor(cr, cg, cb, 1)
+		end
+	end)
+	local fid = blackListAddon.GetFactionIdForPlayer and blackListAddon:GetFactionIdForPlayer(player)
+	local atlas = nil
+	if fid == 1 then
+		atlas = "AllianceScenario-TitleBG"
+	elseif fid == 2 then
+		atlas = "HordeScenario-TitleBG"
+	end
+	if atlas then
+		if not tooltip.blackListFactionTrimTop then
+			tooltip.blackListFactionTrimTop = tooltip:CreateTexture(nil, "ARTWORK", nil, 2)
+		end
+		if not tooltip.blackListFactionTrimBottom then
+			tooltip.blackListFactionTrimBottom = tooltip:CreateTexture(nil, "ARTWORK", nil, 2)
+		end
+		local trim = tooltip.blackListFactionTrimTop
+		local trimBottom = tooltip.blackListFactionTrimBottom
+		local ok = pcall(function()
+			trim:SetAtlas(atlas)
+		end)
+		local okB = pcall(function()
+			trimBottom:SetAtlas(atlas)
+		end)
+		if ok and okB and trim:GetAtlas() and trimBottom:GetAtlas() then
+			trim:SetTexCoord(0, 1, 0, 0.36)
+			local tw = math.max(140, math.floor((tooltip:GetWidth() or 220) + 8))
+			local srcW, srcH = 467, 141
+			if C_Texture and C_Texture.GetAtlasInfo then
+				local ok2, info = pcall(C_Texture.GetAtlasInfo, atlas)
+				if ok2 and info and info.width and info.height and info.width > 0 and info.height > 0 then
+					srcW, srcH = info.width, info.height
+				end
+			end
+			local th = math.max(6, math.floor((tw * (((0.36 - 0) * srcH) / srcW)) + 0.5))
+			trim:SetSize(tw, th)
+			trim:ClearAllPoints()
+			trim:SetPoint("BOTTOM", tooltip, "TOP", 0, -8)
+			trim:SetAlpha(0.9)
+			trim:Show()
+
+			trimBottom:SetTexCoord(0, 1, 2 / 3, 1)
+			local bh = math.max(6, math.floor((tw * (((1 - (2 / 3)) * srcH) / srcW)) + 0.5))
+			trimBottom:SetSize(tw, bh)
+			trimBottom:ClearAllPoints()
+			trimBottom:SetPoint("TOP", tooltip, "BOTTOM", 0, 9)
+			trimBottom:SetAlpha(0.9)
+			trimBottom:Show()
+		else
+			trim:Hide()
+			trimBottom:Hide()
+		end
+	end
+	tooltip.blackListTooltipPlayerStyled = true
 end
 
 -- Same rules as EPF Custom Skins (Options.lua): gray hover, gold active row.

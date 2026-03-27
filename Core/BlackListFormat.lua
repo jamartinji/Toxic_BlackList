@@ -30,32 +30,105 @@ function BlackList:GetLocalizedClassDisplayName(player)
 	return token
 end
 
---- Typical Alliance / Horde colors for faction text.
-function BlackList:GetFactionColorRGBForPlayer(player)
+--- Returns 1 = Alliance, 2 = Horde, nil = unknown (used for colors, icons).
+function BlackList:GetFactionIdForPlayer(player)
 	if not player then
-		return 0.75, 0.75, 0.75
+		return nil
 	end
 	self:EnsureEntryFields(player)
 	local f = strtrim(tostring(player.faction or ""))
 	local locA = L["ALLIANCE"] or "Alliance"
 	local locH = L["HORDE"] or "Horde"
 	if f == locA or f == "Alliance" then
-		return 0.29, 0.33, 0.91
+		return 1
 	end
 	if f == locH or f == "Horde" then
-		return 0.90, 0.18, 0.18
+		return 2
 	end
 	local raceStr = player.race
 	if raceStr and raceStr ~= "" then
 		local fac = GetFaction(raceStr)
 		if fac == 1 then
-			return 0.29, 0.33, 0.91
+			return 1
 		end
 		if fac == 2 then
-			return 0.90, 0.18, 0.18
+			return 2
 		end
 	end
+	return nil
+end
+
+--- Specific color palette for class text/borders (RGB 0..1).
+function BlackList:GetSpecificClassColorRGB(classTokenOrLocalized)
+	local grayR, grayG, grayB = 0.75, 0.75, 0.75
+	if not classTokenOrLocalized or classTokenOrLocalized == "" then
+		return grayR, grayG, grayB
+	end
+	local colors = _G.RAID_CLASS_COLORS
+	if not colors then
+		return grayR, grayG, grayB
+	end
+	local c = colors[classTokenOrLocalized]
+	if c and c.r then
+		return c.r, c.g, c.b
+	end
+	for token, col in pairs(colors) do
+		if type(token) == "string" and col and col.r then
+			local locM = _G.LOCALIZED_CLASS_NAMES_MALE and _G.LOCALIZED_CLASS_NAMES_MALE[token]
+			local locF = _G.LOCALIZED_CLASS_NAMES_FEMALE and _G.LOCALIZED_CLASS_NAMES_FEMALE[token]
+			if locM == classTokenOrLocalized or locF == classTokenOrLocalized then
+				return col.r, col.g, col.b
+			end
+		end
+	end
+	return grayR, grayG, grayB
+end
+
+--- Specific color palette for faction text/backgrounds (RGB 0..1). Accepts player table or faction id.
+function BlackList:GetSpecificFactionColorRGB(playerOrFactionId)
+	local id = playerOrFactionId
+	if type(playerOrFactionId) == "table" then
+		id = self:GetFactionIdForPlayer(playerOrFactionId)
+	end
+	if id == 1 then
+		return 0.29, 0.33, 0.91
+	end
+	if id == 2 then
+		return 0.90, 0.18, 0.18
+	end
 	return 0.75, 0.75, 0.75
+end
+
+--- Typical Alliance / Horde colors for faction text.
+function BlackList:GetFactionColorRGBForPlayer(player)
+	return self:GetSpecificFactionColorRGB(player)
+end
+
+--- Character Create faction logos (Blizzard_CharacterCreate.xml). Edit watermark via SetAtlas.
+function BlackList:GetFactionBadgeAtlasNameForPlayer(player)
+	local id = self:GetFactionIdForPlayer(player)
+	if id == 1 then
+		return "charactercreate-icon-alliance"
+	elseif id == 2 then
+		return "charactercreate-icon-horde"
+	end
+	return nil
+end
+
+--- Inline atlas markup for faction icon on FontStrings (|A:name:h:w:0:0|a). Empty if faction unknown.
+function BlackList:GetFactionBadgeAtlasMarkupForPlayer(player, width, height)
+	local atlas = self:GetFactionBadgeAtlasNameForPlayer(player)
+	if not atlas then
+		return ""
+	end
+	local w = width or 16
+	local h = height or 16
+	return string.format("|A:%s:%d:%d:0:0|a", atlas, h, w)
+end
+
+--- List row text (icon is rendered by the row widget, not inline markup).
+function BlackList:GetStandaloneListIconMarkupForPlayer(player)
+	return ""
 end
 
 --- Line 1: name (class color) - realm (white).
@@ -242,30 +315,9 @@ function BlackList:FormatPlayerDetailsRichDateBlock(player)
 	return s
 end
 
---- RGB from RAID_CLASS_COLORS (EN token or localized class name). Unknown class: gray (not white; reads like priest).
+--- RGB from specific class color method. Unknown class: gray (not white; reads like priest).
 function BlackList:GetClassColorRGB(classTokenOrLocalized)
-	local grayR, grayG, grayB = 0.75, 0.75, 0.75
-	if not classTokenOrLocalized or classTokenOrLocalized == "" then
-		return grayR, grayG, grayB
-	end
-	local colors = _G.RAID_CLASS_COLORS
-	if not colors then
-		return grayR, grayG, grayB
-	end
-	local c = colors[classTokenOrLocalized]
-	if c and c.r then
-		return c.r, c.g, c.b
-	end
-	for token, col in pairs(colors) do
-		if type(token) == "string" and col and col.r then
-			local locM = _G.LOCALIZED_CLASS_NAMES_MALE and _G.LOCALIZED_CLASS_NAMES_MALE[token]
-			local locF = _G.LOCALIZED_CLASS_NAMES_FEMALE and _G.LOCALIZED_CLASS_NAMES_FEMALE[token]
-			if locM == classTokenOrLocalized or locF == classTokenOrLocalized then
-				return col.r, col.g, col.b
-			end
-		end
-	end
-	return grayR, grayG, grayB
+	return self:GetSpecificClassColorRGB(classTokenOrLocalized)
 end
 
 --- Class-colored name only from RAID_CLASS_COLORS (no prefix/body). Use in UI or when building the message yourself.
@@ -429,12 +481,13 @@ function BlackList:FormatChatAlertFromFormatted(player, formattedLine, severity)
 	return self:FormatChatTagPlain(inner, severity)
 end
 
---- Standalone list line: name (class color) + realm in gray (reason in tooltip).
+--- Standalone list line: faction icon, then name (class color) + realm in gray (reason in tooltip).
 function BlackList:FormatStandaloneListLine(player)
 	if not player or not player["name"] then
 		return ""
 	end
 	self:EnsureEntryFields(player)
+	local icons = self:GetStandaloneListIconMarkupForPlayer(player)
 	local nameColored = self:FormatPlayerNameWithClassColor(player)
 	local realm = strtrim(tostring(player.realm or ""))
 	if realm == "" then
@@ -442,7 +495,7 @@ function BlackList:FormatStandaloneListLine(player)
 	else
 		realm = escBlizz(realm)
 	end
-	return nameColored .. " |cff888888- " .. realm .. "|r"
+	return icons .. nameColored .. " |cff888888- " .. realm .. "|r"
 end
 
 function BlackList:AddMessage(msg, color)

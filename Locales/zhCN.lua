@@ -153,6 +153,16 @@ L["MINIMAP_TOOLTIP_RIGHT_CLICK"] = "右键：%s"
 L["MINIMAP_TOOLTIP_LEFT_OPTIONS"] = "左键：打开选项"
 L["MINIMAP_TOOLTIP_RIGHT_LIST"] = "右键：打开列表"
 L["REASON_EDIT_HINT"] = "悬停在行上查看详情。双击行可编辑。"
+L["SORT_BY_TITLE"] = "排序方式..."
+L["SORT_DATE"] = "日期"
+L["SORT_NAME"] = "名称"
+L["SORT_REALM"] = "服务器"
+L["SORT_FACTION"] = "阵营"
+L["UNDO_DELETE"] = "撤销"
+L["UNDO_NOTHING"] = "无可撤销"
+L["FILTER_PLACEHOLDER"] = "过滤..."
+L["TOOLTIP_FILTER_TOGGLE_SHOW"] = "显示过滤"
+L["TOOLTIP_FILTER_TOGGLE_HIDE"] = "隐藏过滤"
 
 -- ---------------------------------------------------------------------------
 -- Help

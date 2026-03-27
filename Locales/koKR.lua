@@ -153,6 +153,16 @@ L["MINIMAP_TOOLTIP_RIGHT_CLICK"] = "오른쪽 클릭: %s"
 L["MINIMAP_TOOLTIP_LEFT_OPTIONS"] = "왼쪽 클릭: 옵션 열기"
 L["MINIMAP_TOOLTIP_RIGHT_LIST"] = "오른쪽 클릭: 목록 열기"
 L["REASON_EDIT_HINT"] = "행에 마우스를 올리면 상세 정보가 보입니다. 더블 클릭으로 편집."
+L["SORT_BY_TITLE"] = "정렬 기준..."
+L["SORT_DATE"] = "날짜"
+L["SORT_NAME"] = "이름"
+L["SORT_REALM"] = "서버"
+L["SORT_FACTION"] = "진영"
+L["UNDO_DELETE"] = "실행 취소"
+L["UNDO_NOTHING"] = "실행 취소할 항목 없음"
+L["FILTER_PLACEHOLDER"] = "필터..."
+L["TOOLTIP_FILTER_TOGGLE_SHOW"] = "필터 표시"
+L["TOOLTIP_FILTER_TOGGLE_HIDE"] = "필터 숨기기"
 
 -- ---------------------------------------------------------------------------
 -- Help

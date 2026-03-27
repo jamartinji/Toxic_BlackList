@@ -4,6 +4,41 @@ All notable changes to **Toxic BlackList** are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-03-27
+
+### Added
+
+- Standalone list sorting context menu (right click on row): **Date**, **Name**, **Realm**, **Faction** with ascending/descending toggle.
+- Standalone **Undo** action button to restore recent deletions.
+- Standalone list search UX improvements: toggle button, hide/show search bar behavior, localized placeholder text and filter toggle tooltips.
+- UI decoration framework for top trims on standalone windows.
+
+### Changed
+
+- Standalone list interactions refined:
+  - when editor is already open, clicking another row switches the editor view.
+- Standalone row visuals updated:
+  - unknown/manual entries now use a dedicated icon style and sizing.
+- Tooltip styling refined:
+  - faction-colored border/background behavior updated,
+  - top and bottom decorative trims added/tuned and reset safely when tooltip closes.
+- Standalone window chrome/layout pass:
+  - tighter top spacing,
+  - icon bar spacing and ordering adjustments,
+- Add-by-name dialog layout adjusted with cleaner vertical spacing around reason box and action buttons.
+- Details window styling updated:
+  - top trim decoration added.
+
+### Fixed
+
+- Multiple visual alignments.
+
+## [1.0.3] - 2026-03-27
+
+### Fixed
+
+- **secret-value taint**: Avoid comparing raw realm strings from `UnitName` / `GetRealmName` and avoid boolean tests on API results (`UnitExists`, `UnitIsPlayer`, `UnitIsUnit`) in `CollectPlayerFieldsFromUnit`, proximity/nameplate scans, and context-menu unit resolution — prevents Lua errors when nameplates or “targeting you” alerts run.
+
 ## [1.0.2] - 2026-03-26
 
 ### Added

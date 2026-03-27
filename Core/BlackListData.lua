@@ -21,6 +21,14 @@ local function NormalizeRealmKey(realm)
 	return strtrim(tostring(realm or "")):lower()
 end
 
+--- Copy API strings to plain literals (Retail "secret string" taint from UnitName/GetRealmName, etc.).
+local function SanitizeApiString(s)
+	if s == nil then
+		return ""
+	end
+	return strtrim(string.format("%s", s))
+end
+
 --- Merge legacy per-realm buckets into one account list (dedupe by name+realm). Safe to call repeatedly after migration flag is set.
 function BlackList:MigrateToAccountWideList()
 	if not BlackListedPlayers then
@@ -118,6 +126,9 @@ function BlackList:EnsureEntryFields(player)
 	if player.race == nil then
 		player.race = ""
 	end
+	if player.raceToken == nil then
+		player.raceToken = ""
+	end
 	if player.manualAdd == nil then
 		if strtrim(tostring(player.level or "")) == "" and strtrim(tostring(player.class or "")) == "" then
 			player.manualAdd = true
@@ -208,21 +219,24 @@ function BlackList:CollectPlayerFieldsFromUnit(unit)
 	if not unit then
 		return nil
 	end
-	local okExists = pcall(UnitExists, unit)
-	if not okExists or not UnitExists(unit) then
+	local okExists, unitExists = pcall(UnitExists, unit)
+	if not okExists or unitExists ~= true then
 		return nil
 	end
 	local okPl, isPl = pcall(UnitIsPlayer, unit)
-	if not okPl or not isPl then
+	if not okPl or isPl ~= true then
 		return nil
 	end
 	local level = unitLevelString(unit)
 	local locClass, classToken = UnitClass(unit)
 	local class = (classToken and classToken ~= "") and classToken or (locClass or "")
-	local race = select(1, UnitRace(unit)) or ""
-	local _, realm = UnitName(unit)
-	if not realm or realm == "" then
-		realm = GetRealmName() or ""
+	local raceLoc, raceEn = UnitRace(unit)
+	local race = raceLoc and SanitizeApiString(raceLoc) or ""
+	local raceToken = raceEn and SanitizeApiString(raceEn) or ""
+	local _, realmRaw = UnitName(unit)
+	local realm = SanitizeApiString(realmRaw)
+	if realm == "" then
+		realm = SanitizeApiString(GetRealmName())
 	end
 	local guildName = ""
 	local okG, g1 = pcall(GetGuildInfo, unit)
@@ -246,6 +260,7 @@ function BlackList:CollectPlayerFieldsFromUnit(unit)
 		level = level,
 		class = class,
 		race = race,
+		raceToken = raceToken,
 		realm = realm,
 		guild = guildName,
 		faction = factionStr,
@@ -264,6 +279,9 @@ function BlackList:ApplyUnitDataToPlayerEntry(player, data)
 	end
 	if data.race and data.race ~= "" then
 		player.race = data.race
+	end
+	if data.raceToken and data.raceToken ~= "" then
+		player.raceToken = data.raceToken
 	end
 	if data.realm and data.realm ~= "" then
 		player.realm = data.realm
@@ -303,15 +321,16 @@ function BlackList:TryUpdateBlacklistedPlayerFromUnit(unit)
 	if not unit then
 		return
 	end
-	local okExists = pcall(UnitExists, unit)
-	if not okExists or not UnitExists(unit) then
+	local okExists, unitExists = pcall(UnitExists, unit)
+	if not okExists or unitExists ~= true then
 		return
 	end
 	local okPl, isPl = pcall(UnitIsPlayer, unit)
-	if not okPl or not isPl then
+	if not okPl or isPl ~= true then
 		return
 	end
-	if pcall(UnitIsUnit, unit, "player") and UnitIsUnit(unit, "player") then
+	local okU, isSelf = pcall(UnitIsUnit, unit, "player")
+	if okU and isSelf == true then
 		return
 	end
 	local name = UnitName(unit)
@@ -355,7 +374,7 @@ end
 
 function BlackList:AddPlayer(player, reason)
 
-	local name, level, class, race, raceEn, added
+	local name, level, class, race, raceEn, raceToken, added
 	local realm, guild, faction, manualAdd, updatedAt
 	local dataFromUnit = nil
 
@@ -404,6 +423,7 @@ function BlackList:AddPlayer(player, reason)
 		level = "";
 		class = "";
 		race = "";
+		raceToken = "";
 		realm = "";
 		guild = "";
 		faction = "";
@@ -466,6 +486,14 @@ function BlackList:AddPlayer(player, reason)
 		end
 	end
 	
+	raceToken = ""
+	if player == "target" then
+		if dataFromUnit and dataFromUnit.raceToken and dataFromUnit.raceToken ~= "" then
+			raceToken = dataFromUnit.raceToken
+		elseif raceEn and tostring(raceEn) ~= "" then
+			raceToken = tostring(raceEn)
+		end
+	end
 	local entry = {
 		["name"] = name,
 		["reason"] = reason,
@@ -473,6 +501,7 @@ function BlackList:AddPlayer(player, reason)
 		["level"] = level,
 		["class"] = class,
 		["race"] = race,
+		["raceToken"] = raceToken or "",
 		["realm"] = realm or "",
 		["guild"] = guild or "",
 		["faction"] = faction or "",
@@ -516,8 +545,9 @@ function BlackList:AddPlayerFromContextMenu(name, realm, classToken, race, unitT
 	end
 	local dataFromUnit = nil
 	if unitToken then
-		local okEx = pcall(UnitExists, unitToken)
-		if okEx and UnitExists(unitToken) and pcall(UnitIsPlayer, unitToken) and UnitIsPlayer(unitToken) then
+		local okEx, exU = pcall(UnitExists, unitToken)
+		local okIp, isPl = pcall(UnitIsPlayer, unitToken)
+		if okEx and exU == true and okIp and isPl == true then
 			dataFromUnit = self:CollectPlayerFieldsFromUnit(unitToken)
 		end
 	end
@@ -566,6 +596,7 @@ function BlackList:AddPlayerFromContextMenu(name, realm, classToken, race, unitT
 			["level"] = dataFromUnit.level or "",
 			["class"] = (dataFromUnit.class ~= "" and dataFromUnit.class) or (classToken or ""),
 			["race"] = (dataFromUnit.race ~= "" and dataFromUnit.race) or (race or ""),
+			["raceToken"] = (dataFromUnit.raceToken and dataFromUnit.raceToken ~= "" and dataFromUnit.raceToken) or "",
 			["realm"] = dataFromUnit.realm or realm or "",
 			["guild"] = dataFromUnit.guild or "",
 			["faction"] = dataFromUnit.faction or "",
@@ -581,6 +612,7 @@ function BlackList:AddPlayerFromContextMenu(name, realm, classToken, race, unitT
 			["level"] = "",
 			["class"] = classToken or "",
 			["race"] = race or "",
+			["raceToken"] = "",
 			["realm"] = realm or "",
 			["guild"] = "",
 			["faction"] = "",

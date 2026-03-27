@@ -153,6 +153,16 @@ L["MINIMAP_TOOLTIP_RIGHT_CLICK"] = "ПКМ: %s"
 L["MINIMAP_TOOLTIP_LEFT_OPTIONS"] = "ЛКМ: открыть настройки"
 L["MINIMAP_TOOLTIP_RIGHT_LIST"] = "ПКМ: открыть список"
 L["REASON_EDIT_HINT"] = "Наведите на строку — подробности. Двойной щелчок — редактировать."
+L["SORT_BY_TITLE"] = "Сортировать по..."
+L["SORT_DATE"] = "Дата"
+L["SORT_NAME"] = "Имя"
+L["SORT_REALM"] = "Мир"
+L["SORT_FACTION"] = "Фракция"
+L["UNDO_DELETE"] = "Отменить"
+L["UNDO_NOTHING"] = "Нечего отменять"
+L["FILTER_PLACEHOLDER"] = "Фильтр..."
+L["TOOLTIP_FILTER_TOGGLE_SHOW"] = "Показать фильтр"
+L["TOOLTIP_FILTER_TOGGLE_HIDE"] = "Скрыть фильтр"
 
 -- ---------------------------------------------------------------------------
 -- Help
