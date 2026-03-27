@@ -107,7 +107,7 @@ local function getScenarioTitleAtlasForFaction(self, player)
 	elseif id == 2 then
 		return "HordeScenario-TitleBG"
 	end
-	return nil
+	return "jailerstower-scenario-TitleBG"
 end
 
 applyTrimDecor = function(frame, cfg)
@@ -247,7 +247,7 @@ function BlackList:CreateStandaloneDetailsLayout(detailsFrame)
 	end
 
 	local padX = 16
-	local y0 = -64
+	local y0 = -38
 	local prev = detailsFrame
 	local rowW = (detailsFrame.blackListDesiredWidth or 300) - padX * 2
 
