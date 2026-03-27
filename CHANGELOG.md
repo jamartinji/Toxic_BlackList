@@ -4,6 +4,30 @@ All notable changes to **Toxic BlackList** are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-03-27
+
+### Added
+
+- Context menu entries on **Friends → Recent Allies** (online and offline), same add/remove blacklist flow as target and LFG menus (`MENU_UNIT_RECENT_ALLY`, `MENU_UNIT_RECENT_ALLY_OFFLINE`).
+- Name/realm resolution for context and nameplates: **`GetPlayerInfoByGUID` with raw GUID** when string copy fails; **`UnitNameUnmodified`** as first try on nameplates; class/race fallback from `recentAllyData.characterData` when needed.
+
+### Changed
+
+- **Retail “secret” API values (Midnight / 12.x):** safe handling for secret GUIDs (plain copy before `strsub`), secret booleans from `UnitExists` / `UnitIsUnit` / `UnitIsPlayer` without comparing to `true`/`false`, and `apiBoolIsTrue` that returns plain Lua booleans only.
+- **Nameplate proximity:** resolve **name and realm before** the strict “is another player” check so hostile / opposite-faction nameplates still match the list when `UnitIsPlayer` or GUID prefix checks are unreliable.
+- **Standalone list:** unknown-faction row icon (`QuestLegendaryTurnin`) anchor nudged left to align with faction badges; Alliance/Horde icons explicitly re-anchored after size changes.
+- Startup errors from `BlackList_RunStep` still surface in chat (red text); verbose `BlackList.Log` / `BlackListDebugLog` toggle removed.
+
+### Removed
+
+- Temporary nearby-player experiment module and related XML load.
+- Chat spam from optional debug logging (`/run BlackListDebugLog` workflow).
+
+### Fixed
+
+- `GetPlayerInfoByGUID` return values: **name** is the 6th return (was shifted in one path).
+- Stale “RegisterEvents: frame missing” log when the top frame is absent.
+
 ## [1.1.0] - 2026-03-27
 
 ### Added

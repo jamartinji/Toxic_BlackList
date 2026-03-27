@@ -26,7 +26,10 @@ local function SanitizeApiString(s)
 	if s == nil then
 		return ""
 	end
-	return strtrim(string.format("%s", s))
+	local ok, out = pcall(function()
+		return strtrim(string.format("%s", s))
+	end)
+	return (ok and out) or ""
 end
 
 --- Merge legacy per-realm buckets into one account list (dedupe by name+realm). Safe to call repeatedly after migration flag is set.

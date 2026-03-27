@@ -421,6 +421,8 @@ function BlackList:CreateStandaloneWindow()
 					button.FactionIcon:SetAtlas(atlas)
 				end)
 				if okAtlas and button.FactionIcon:GetAtlas() then
+					button.FactionIcon:ClearAllPoints()
+					button.FactionIcon:SetPoint("LEFT", button, "LEFT", 10, 0)
 					button.FactionIcon:SetSize(14, 18)
 					button.FactionIcon:SetTexCoord(0, 1, 0, 1)
 					button.FactionIcon:SetVertexColor(1, 1, 1, 1)
@@ -433,6 +435,9 @@ function BlackList:CreateStandaloneWindow()
 					button.FactionIcon:SetAtlas("QuestLegendaryTurnin")
 				end)
 				if okAtlas and button.FactionIcon:GetAtlas() then
+					button.FactionIcon:ClearAllPoints()
+					-- 18×18 vs 14×18 faction badges; nudge left to align visual center with row icons.
+					button.FactionIcon:SetPoint("LEFT", button, "LEFT", 7, 0)
 					button.FactionIcon:SetSize(18, 18)
 					button.FactionIcon:SetTexCoord(0, 1, 0, 1)
 					button.FactionIcon:SetVertexColor(1, 1, 1, 1)

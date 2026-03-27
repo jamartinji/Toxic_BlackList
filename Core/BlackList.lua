@@ -16,25 +16,17 @@ Already_Warned_For["TARGETED_BY"] = {};
 
 BlackListedPlayers = {};
 
--- Set to false in-game: /run BlackListDebugLog=false  (stops chat spam)
-BlackListDebugLog = BlackListDebugLog ~= false
-
-function BlackList.Log(msg)
-	if BlackListDebugLog == false then
-		return
-	end
-	if not DEFAULT_CHAT_FRAME then
-		return
-	end
-	local pref = (type(BlackList.GetChatListPrefixMarkup) == "function" and BlackList:GetChatListPrefixMarkup())
-		or "|cffffff00[Toxic BlackList]|r "
-	DEFAULT_CHAT_FRAME:AddMessage(pref .. "|cff00ccff" .. tostring(msg) .. "|r", 1, 1, 1)
-end
-
 local function BlackList_RunStep(name, fn)
 	local ok, err = pcall(fn)
 	if not ok then
-		BlackList.Log(string.format(L["LOG_ERROR_IN"] or "ERROR in %s:", name) .. " " .. tostring(err))
+		if DEFAULT_CHAT_FRAME then
+			local pref = (type(BlackList.GetChatListPrefixMarkup) == "function" and BlackList:GetChatListPrefixMarkup())
+				or "|cffffff00[Toxic BlackList]|r "
+			DEFAULT_CHAT_FRAME:AddMessage(
+				pref .. string.format(L["LOG_ERROR_IN"] or "ERROR in %s:", name) .. " " .. tostring(err),
+				1, 0.25, 0.25
+			)
+		end
 		return false
 	end
 	return true
@@ -45,6 +37,29 @@ local function BlackList_PlaySound(kind)
 	if BlackList.PlaySoundForKind then
 		BlackList:PlaySoundForKind(kind)
 	end
+end
+
+--- Retail Unit* APIs may return "secret" booleans: never use == or ~= with true/false.
+--- Truthiness (if v) is allowed; never stringify — string.format/tostring can fail or yield secret strings.
+--- Always return plain Lua true/false so callers never propagate secret values.
+local function apiBoolIsTrue(v)
+	if v == nil then
+		return false
+	end
+	if type(v) == "boolean" then
+		if v then
+			return true
+		else
+			return false
+		end
+	end
+	local ok, t = pcall(function()
+		if v then
+			return true
+		end
+		return false
+	end)
+	return ok and t == true
 end
 
 local function BlackList_RefreshBlacklistedUnitsInGroup()
@@ -59,7 +74,9 @@ local function BlackList_RefreshBlacklistedUnitsInGroup()
 	if IsInRaid() then
 		for i = 1, 40 do
 			local unit = "raid" .. i
-			if UnitExists(unit) and UnitIsPlayer(unit) then
+			local okE, ex = pcall(UnitExists, unit)
+			local okP, pl = pcall(UnitIsPlayer, unit)
+			if okE and apiBoolIsTrue(ex) and okP and apiBoolIsTrue(pl) then
 				tryUnit(unit)
 			end
 		end
@@ -115,7 +132,8 @@ local function BlackList_CheckGroupForBlacklistedPlayers()
 	if IsInRaid() then
 		for i = 1, 40 do
 			local unit = "raid" .. i
-			if UnitExists(unit) then
+			local okE, ex = pcall(UnitExists, unit)
+			if okE and apiBoolIsTrue(ex) then
 				warnForName(UnitName(unit))
 			end
 		end
@@ -171,7 +189,6 @@ function BlackList:RegisterEvents()
 
 	local frame = _G.BlackListTopFrame or getglobal("BlackListTopFrame")
 	if not frame then
-		BlackList.Log("RegisterEvents: BlackListTopFrame does not exist")
 		return
 	end
 
@@ -218,16 +235,16 @@ function BlackList:UnitTokenTargetsPlayer(unit)
 		return false
 	end
 	local ok, exists = pcall(UnitExists, unit)
-	if not ok or exists ~= true then
+	if not ok or not apiBoolIsTrue(exists) then
 		return false
 	end
 	local isPl
 	ok, isPl = pcall(UnitIsPlayer, unit)
-	if not ok or isPl ~= true then
+	if not ok or not apiBoolIsTrue(isPl) then
 		return false
 	end
 	ok, exists = pcall(UnitIsUnit, unit, "player")
-	if not ok or exists == true then
+	if not ok or apiBoolIsTrue(exists) then
 		return false
 	end
 	local targetToken
@@ -236,9 +253,9 @@ function BlackList:UnitTokenTargetsPlayer(unit)
 		local tHyphen = unit .. "-target"
 		local okP, exP = pcall(UnitExists, tPlain)
 		local okH, exH = pcall(UnitExists, tHyphen)
-		if okP and exP == true then
+		if okP and apiBoolIsTrue(exP) then
 			targetToken = tPlain
-		elseif okH and exH == true then
+		elseif okH and apiBoolIsTrue(exH) then
 			targetToken = tHyphen
 		else
 			return false
@@ -246,12 +263,12 @@ function BlackList:UnitTokenTargetsPlayer(unit)
 	else
 		targetToken = unit .. "target"
 		ok, exists = pcall(UnitExists, targetToken)
-		if not ok or exists ~= true then
+		if not ok or not apiBoolIsTrue(exists) then
 			return false
 		end
 	end
 	ok, exists = pcall(UnitIsUnit, targetToken, "player")
-	if ok and exists == true then
+	if ok and apiBoolIsTrue(exists) then
 		return true
 	end
 	return false
@@ -316,35 +333,80 @@ function BlackList:ScanBlacklistedTargetingPlayer()
 end
 
 --- Copy API strings to plain literals (matches BlackListData SanitizeApiString; helps list lookups).
+--- pcall: Retail may return "secret" strings that error on implicit conversion (e.g. string.format in some contexts).
 local function sanitizeApiString(s)
 	if s == nil then
 		return ""
 	end
-	return strtrim(string.format("%s", s))
+	local ok, out = pcall(function()
+		return strtrim(string.format("%s", s))
+	end)
+	return (ok and out) or ""
+end
+
+--- UnitGUID may return a secret string; never strsub/compare the raw value — copy to a plain string first.
+local function guidPlainString(guid)
+	if guid == nil then
+		return ""
+	end
+	local ok, out = pcall(function()
+		return strtrim(string.format("%s", guid))
+	end)
+	return (ok and out) or ""
+end
+
+local function guidLooksLikePlayer(guid)
+	local g = guidPlainString(guid)
+	return g ~= "" and strsub(g, 1, 7) == "Player-"
 end
 
 --- True if unit is another player character (not pet/NPC). Hostile nameplates sometimes fail UnitIsPlayer on first frames.
 local function unitIsOtherPlayerCharacter(unitToken)
 	local ok, isPl = pcall(UnitIsPlayer, unitToken)
-	if ok and isPl == true then
+	if ok and apiBoolIsTrue(isPl) then
 		return true
 	end
 	local okG, guid = pcall(UnitGUID, unitToken)
-	if okG and type(guid) == "string" and strsub(guid, 1, 7) == "Player-" then
+	if not okG or not guid then
+		return false
+	end
+	if guidLooksLikePlayer(guid) then
 		return true
+	end
+	-- Secret GUID may not copy to a "Player-" string; GetPlayerInfoByGUID(guid) still identifies players (including hostile).
+	if GetPlayerInfoByGUID then
+		local okPi, _, _, _, _, piName = pcall(GetPlayerInfoByGUID, guid)
+		if okPi and piName then
+			local n = sanitizeApiString(piName)
+			if n ~= "" then
+				return true
+			end
+		end
 	end
 	return false
 end
 
 --- Name + realm from a player GUID when UnitName/UnitFullName are not ready yet (Blizzard pattern; helps hostile nameplates).
 local function getNameRealmFromPlayerGUID(guid)
-	if type(guid) ~= "string" or strsub(guid, 1, 7) ~= "Player-" then
+	if not guid then
 		return nil, ""
 	end
 	if not GetPlayerInfoByGUID then
 		return nil, ""
 	end
-	local ok, _lc, _ec, _lr, _er, _sex, name, realmName = pcall(GetPlayerInfoByGUID, guid)
+	-- Always try raw GUID first (hostile / secret GUIDs: prefix check may fail before string copy).
+	local ok, _, _, _, _, name, realmName = pcall(GetPlayerInfoByGUID, guid)
+	if ok and name then
+		local n = sanitizeApiString(name)
+		if n ~= "" then
+			return n, sanitizeApiString(realmName)
+		end
+	end
+	local g = guidPlainString(guid)
+	if g == "" or strsub(g, 1, 7) ~= "Player-" then
+		return nil, ""
+	end
+	ok, _, _, _, _, name, realmName = pcall(GetPlayerInfoByGUID, g)
 	if not ok or not name then
 		return nil, ""
 	end
@@ -356,15 +418,24 @@ local function getNameRealmFromPlayerGUID(guid)
 end
 
 --- Resolve name + realm from a nameplate unit (cross-realm aware).
---- Order: UnitName (typical on nameplates) -> UnitFullName -> GetPlayerInfoByGUID(UnitGUID) when the unit token has no name yet.
+--- Order: UnitNameUnmodified (often best on nameplates) -> UnitName -> UnitFullName -> GetPlayerInfoByGUID(UnitGUID).
 local function getUnitNameRealmForList(unitToken)
 	if not unitToken then
 		return nil, ""
 	end
 	local name, realm
-	local ok, n, r = pcall(UnitName, unitToken)
-	if ok and n and sanitizeApiString(n) ~= "" then
-		name, realm = n, r
+	local ok, n, r
+	if UnitNameUnmodified then
+		ok, n, r = pcall(UnitNameUnmodified, unitToken)
+		if ok and n and sanitizeApiString(n) ~= "" then
+			name, realm = n, r
+		end
+	end
+	if not name or sanitizeApiString(name) == "" then
+		ok, n, r = pcall(UnitName, unitToken)
+		if ok and n and sanitizeApiString(n) ~= "" then
+			name, realm = n, r
+		end
 	end
 	if not name or sanitizeApiString(name) == "" then
 		if UnitFullName then
@@ -395,16 +466,18 @@ function BlackList:TryNameplateProximityWarn(unitToken)
 		return
 	end
 	local okEx, unitEx = pcall(UnitExists, unitToken)
-	if not okEx or unitEx ~= true then
+	if not okEx or not apiBoolIsTrue(unitEx) then
 		return
 	end
 	if self.MaybeRefreshBlacklistedUnit then
 		self:MaybeRefreshBlacklistedUnit(unitToken)
 	end
 	local okSelf, isSelf = pcall(UnitIsUnit, unitToken, "player")
-	if (okSelf and isSelf == true) or not unitIsOtherPlayerCharacter(unitToken) then
+	if okSelf and apiBoolIsTrue(isSelf) then
 		return
 	end
+	-- Resolve name before unitIsOtherPlayerCharacter: hostile / opposite-faction nameplates often fail
+	-- UnitIsPlayer + GUID prefix checks until UnitName / GetPlayerInfoByGUID yields a match.
 	local name, realm = getUnitNameRealmForList(unitToken)
 	if not name then
 		return
@@ -451,7 +524,7 @@ function BlackList:ScheduleNameplateProximityCheck(unitToken)
 			return
 		end
 		local okE, ex = pcall(UnitExists, unitToken)
-		if not okE or ex ~= true then
+		if not okE or not apiBoolIsTrue(ex) then
 			return
 		end
 		self:TryNameplateProximityWarn(unitToken)
@@ -673,12 +746,15 @@ function BlackList:HandleEvent(event, ...)
 			BlackList:RegisterContextMenu();
 		end
 	elseif (event == "PLAYER_TARGET_CHANGED") then
-		if UnitExists("target") and UnitIsPlayer("target") and BlackList.MaybeRefreshBlacklistedUnit then
+		local okEt, exT = pcall(UnitExists, "target")
+		local okPt, plT = pcall(UnitIsPlayer, "target")
+		if okEt and apiBoolIsTrue(exT) and okPt and apiBoolIsTrue(plT) and BlackList.MaybeRefreshBlacklistedUnit then
 			BlackList:MaybeRefreshBlacklistedUnit("target")
 		end
-		-- search for player name (incl. self as target: useful for testing alerts)
+		-- search for player name (incl. self as target)
 		local name = UnitName("target");
-		if (name and UnitIsPlayer("target") and BlackList:GetIndexByName(name) > 0) then
+		local okPt2, plT2 = pcall(UnitIsPlayer, "target")
+		if (name and okPt2 and apiBoolIsTrue(plT2) and BlackList:GetIndexByName(name) > 0) then
 			local player = BlackList:GetPlayerByIndex(BlackList:GetIndexByName(name));
 
 			if (not BlackList:ShouldMuteWorldProximityAlerts() and BlackList:GetOption("warnTarget", true)) then
@@ -703,12 +779,15 @@ function BlackList:HandleEvent(event, ...)
 			BlackList:ScanBlacklistedTargetingPlayer()
 		end
 	elseif (event == "UPDATE_MOUSEOVER_UNIT") then
-		if UnitExists("mouseover") and UnitIsPlayer("mouseover") and BlackList.MaybeRefreshBlacklistedUnit then
+		local okEm, exM = pcall(UnitExists, "mouseover")
+		local okPm, plM = pcall(UnitIsPlayer, "mouseover")
+		if okEm and apiBoolIsTrue(exM) and okPm and apiBoolIsTrue(plM) and BlackList.MaybeRefreshBlacklistedUnit then
 			BlackList:MaybeRefreshBlacklistedUnit("mouseover")
 		end
-		-- search for player name (incl. mouseover self for testing)
+		-- search for player name (incl. mouseover self)
 		local name = UnitName("mouseover");
-		if (name and UnitIsPlayer("mouseover") and BlackList:GetIndexByName(name) > 0) then
+		local okPm2, plM2 = pcall(UnitIsPlayer, "mouseover")
+		if (name and okPm2 and apiBoolIsTrue(plM2) and BlackList:GetIndexByName(name) > 0) then
 			local player = BlackList:GetPlayerByIndex(BlackList:GetIndexByName(name));
 
 			if (not BlackList:ShouldMuteWorldProximityAlerts() and BlackList:GetOption("warnMouseover", true)) then
