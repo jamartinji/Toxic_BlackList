@@ -2,6 +2,16 @@ local _, Addon = ...
 local L = Addon.L
 local U = Addon.UI
 
+local function cloneEntryTable(src)
+	if type(src) ~= "table" then
+		return nil
+	end
+	local out = {}
+	for k, v in pairs(src) do
+		out[k] = v
+	end
+	return out
+end
 
 -- Inserts all of the UI elements
 function BlackList:InsertUI()
@@ -62,9 +72,31 @@ function BlackList:ShowStandaloneListTooltip(anchor, playerIndex)
 	GameTooltip:Show()
 end
 
+local function getStandaloneSortState()
+	local k = BlackList.GetOption and BlackList:GetOption("standaloneSortKey", "added") or "added"
+	local asc = BlackList.GetOption and BlackList:GetOption("standaloneSortAsc", true)
+	if k ~= "added" and k ~= "name" and k ~= "realm" and k ~= "faction" then
+		k = "added"
+	end
+	return k, (asc == true)
+end
+
+local function setStandaloneSortState(key)
+	local curKey, curAsc = getStandaloneSortState()
+	local nextAsc = true
+	if key == curKey then
+		nextAsc = not curAsc
+	end
+	if BlackList.ToggleOption then
+		BlackList:ToggleOption("standaloneSortKey", key)
+		BlackList:ToggleOption("standaloneSortAsc", nextAsc)
+	end
+end
+
 function BlackList:CreateStandaloneWindow()
+	U.standaloneUndoStack = U.standaloneUndoStack or {}
 	local minIconGap = math.max(2, (U.standaloneIconBarGap or 8) - 4)
-	local minBarContentW = (U.standaloneIconBarBtn * 6) + (minIconGap * 5)
+	local minBarContentW = (U.standaloneIconBarBtn * 7) + (minIconGap * 6)
 	local minWindowW = math.max(268, minBarContentW + 32)
 	local initialWindowW = math.max(300, minWindowW + 4)
 	local frame = U.createChromeParent("BlackListStandaloneFrame", UIParent, initialWindowW, 392)
@@ -121,6 +153,58 @@ function BlackList:CreateStandaloneWindow()
 	listShell:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -28, listBottomReserve)
 
 	local currentSearchFilter = ""
+	local function setSortState(key)
+		setStandaloneSortState(key)
+		BlackList:UpdateStandaloneUI()
+	end
+	local sortDropdown = CreateFrame("Frame", "BlackListStandaloneSortDropDown", frame, "UIDropDownMenuTemplate")
+	local function sortArrowMarkup(asc, transparent)
+		local atlas
+		if transparent then
+			atlas = "glues-characterSelect-icon-minus-disabled"
+		else
+			atlas = asc and "glues-characterSelect-icon-arrowUp" or "glues-characterSelect-icon-arrowDown"
+		end
+		if transparent then
+			return string.format("|c00ffffff|A:%s:%d:%d:0:0|a|r", atlas, 14, 14)
+		end
+		return string.format("|A:%s:%d:%d:0:0|a", atlas, 14, 14)
+	end
+	local function sortLabel(key, baseText)
+		local curKey, asc = getStandaloneSortState()
+		local prefix = sortArrowMarkup(asc, curKey ~= key)
+		return string.format("%s %s", prefix, baseText)
+	end
+	local function showSortMenu()
+		local menu = {
+			{ text = L["SORT_BY_TITLE"] or "Sort by...", isTitle = true, notCheckable = true },
+			{ text = sortLabel("added", L["SORT_DATE"] or "Date"), notCheckable = true, func = function() setSortState("added") end },
+			{ text = sortLabel("name", L["SORT_NAME"] or "Name"), notCheckable = true, func = function() setSortState("name") end },
+			{ text = sortLabel("realm", L["SORT_REALM"] or "Realm"), notCheckable = true, func = function() setSortState("realm") end },
+			{ text = sortLabel("faction", L["SORT_FACTION"] or "Faction"), notCheckable = true, func = function() setSortState("faction") end },
+		}
+		if EasyMenu then
+			EasyMenu(menu, sortDropdown, "cursor", 0, 0, "MENU")
+			return
+		end
+		if UIDropDownMenu_Initialize and UIDropDownMenu_CreateInfo and UIDropDownMenu_AddButton and ToggleDropDownMenu then
+			sortDropdown.displayMode = "MENU"
+			sortDropdown.initialize = function(self, level)
+				level = level or 1
+				for i = 1, #menu do
+					local src = menu[i]
+					local info = UIDropDownMenu_CreateInfo()
+					info.text = src.text
+					info.isTitle = src.isTitle
+					info.notCheckable = src.notCheckable
+					info.func = src.func
+					UIDropDownMenu_AddButton(info, level)
+				end
+			end
+			UIDropDownMenu_Initialize(sortDropdown, sortDropdown.initialize, "MENU")
+			ToggleDropDownMenu(1, nil, sortDropdown, "cursor", 0, 0)
+		end
+	end
 	local function getSearchTextNorm()
 		return strtrim(tostring(currentSearchFilter or "")):lower()
 	end
@@ -326,6 +410,7 @@ function BlackList:CreateStandaloneWindow()
 		button.Text:SetJustifyV("MIDDLE")
 		local index = elementData.playerIndex or elementData.index
 		button:SetID(index)
+		button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 		local player = BlackList:GetPlayerByIndex(index)
 		if player then
 			button.Text:SetText(BlackList:FormatStandaloneListLine(player))
@@ -336,6 +421,7 @@ function BlackList:CreateStandaloneWindow()
 					button.FactionIcon:SetAtlas(atlas)
 				end)
 				if okAtlas and button.FactionIcon:GetAtlas() then
+					button.FactionIcon:SetSize(14, 18)
 					button.FactionIcon:SetTexCoord(0, 1, 0, 1)
 					button.FactionIcon:SetVertexColor(1, 1, 1, 1)
 					button.FactionIcon:Show()
@@ -347,6 +433,7 @@ function BlackList:CreateStandaloneWindow()
 					button.FactionIcon:SetAtlas("QuestLegendaryTurnin")
 				end)
 				if okAtlas and button.FactionIcon:GetAtlas() then
+					button.FactionIcon:SetSize(18, 18)
 					button.FactionIcon:SetTexCoord(0, 1, 0, 1)
 					button.FactionIcon:SetVertexColor(1, 1, 1, 1)
 					button.FactionIcon:Show()
@@ -375,9 +462,17 @@ function BlackList:CreateStandaloneWindow()
 				GameTooltip:Hide()
 			end
 		end)
-		button:SetScript("OnClick", function(self)
+		button:SetScript("OnMouseUp", function(self, mouseButton)
+			if mouseButton == "RightButton" then
+				showSortMenu()
+			end
+		end)
+		button:SetScript("OnClick", function(self, mouseButton)
 			local idx = self:GetID()
 			if not idx or idx < 1 then
+				return
+			end
+			if mouseButton == "RightButton" then
 				return
 			end
 			local detailsFrame = getglobal("BlackListStandaloneDetailsFrame")
@@ -473,7 +568,7 @@ function BlackList:CreateStandaloneWindow()
 	end)
 
 	local removeBtn = CreateFrame("Button", "BlackListStandalone_RemoveButton", iconBar)
-	local texRem = U.styleStandaloneIconButton(removeBtn)
+	local texRem = U.styleStandaloneIconButton(removeBtn, 26)
 	U.applyStandaloneAtlasTexture(texRem, { "Islands-MarkedArea" }, "Interface\\Buttons\\UI-MinusButton-Up", nil)
 	U.setStandaloneIconTint(texRem, 0.95, 0.28, 0.28, 1)
 	removeBtn:SetPoint("LEFT", editBtn, "RIGHT", iconGap, 0)
@@ -487,18 +582,69 @@ function BlackList:CreateStandaloneWindow()
 		local index = BlackList:GetSelectedBlackList()
 		if index and index > 0 then
 			local player = BlackList:GetPlayerByIndex(index)
-			if player then
-				BlackList:RemovePlayer(player["name"])
+			local list = BlackList.GetAccountList and BlackList:GetAccountList()
+			if player and list and list[index] == player then
+				local entryCopy = cloneEntryTable(player)
+				if entryCopy then
+					U.standaloneUndoStack[#U.standaloneUndoStack + 1] = { entry = entryCopy, index = index }
+					if #U.standaloneUndoStack > 20 then
+						table.remove(U.standaloneUndoStack, 1)
+					end
+				end
+				table.remove(list, index)
+				if index > #list then
+					index = #list
+				end
+				BlackList:SetSelectedBlackList(index > 0 and index or 0)
 				BlackList:UpdateStandaloneUI()
 			end
 		end
+	end)
+
+	local undoBtn = CreateFrame("Button", "BlackListStandalone_UndoButton", iconBar)
+	local texUndo = U.styleStandaloneIconButton(undoBtn, 20)
+	U.applyStandaloneAtlasTexture(texUndo, { "common-icon-undo" }, "Interface\\Buttons\\UI-RotateRightButton-Up", nil)
+	U.setStandaloneIconTint(texUndo, 1, 1, 1, 1)
+	undoBtn:SetPoint("LEFT", removeBtn, "RIGHT", iconGap, 0)
+	undoBtn:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		local hasUndo = U.standaloneUndoStack and #U.standaloneUndoStack > 0
+		if hasUndo then
+			GameTooltip:AddLine(L["UNDO_DELETE"] or "Undo", 1, 1, 1, true)
+		else
+			GameTooltip:AddLine(L["UNDO_NOTHING"] or "Nothing to undo", 0.65, 0.65, 0.65, true)
+		end
+		GameTooltip:Show()
+	end)
+	undoBtn:SetScript("OnLeave", GameTooltip_Hide)
+	undoBtn:SetScript("OnClick", function()
+		local stack = U.standaloneUndoStack or {}
+		local item = stack[#stack]
+		if not item or type(item) ~= "table" or type(item.entry) ~= "table" then
+			return
+		end
+		stack[#stack] = nil
+		local list = BlackList.GetAccountList and BlackList:GetAccountList()
+		if not list then
+			return
+		end
+		local insertIndex = tonumber(item.index) or (#list + 1)
+		if insertIndex < 1 then
+			insertIndex = 1
+		end
+		if insertIndex > (#list + 1) then
+			insertIndex = #list + 1
+		end
+		table.insert(list, insertIndex, item.entry)
+		BlackList:SetSelectedBlackList(insertIndex)
+		BlackList:UpdateStandaloneUI()
 	end)
 
 	local searchBtn = CreateFrame("Button", "BlackListStandalone_SearchToggleButton", iconBar)
 	local texSearch = U.styleStandaloneIconButton(searchBtn)
 	U.applyStandaloneAtlasTexture(texSearch, { "loreobject-32x32" }, U.assetsSearch or "Interface\\Buttons\\UI-Searchbox-Icon", nil)
 	U.setStandaloneIconTint(texSearch, 1, 1, 1, 1)
-	searchBtn:SetPoint("LEFT", removeBtn, "RIGHT", iconGap, 0)
+	searchBtn:SetPoint("LEFT", undoBtn, "RIGHT", iconGap, 0)
 	searchBtn:SetScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 		local key = searchVisible and "HIDE" or "SHOW"
@@ -539,6 +685,7 @@ function BlackList:CreateStandaloneWindow()
 	addTargetBtn:SetFrameLevel(barLvl)
 	editBtn:SetFrameLevel(barLvl)
 	removeBtn:SetFrameLevel(barLvl)
+	undoBtn:SetFrameLevel(barLvl)
 	searchBtn:SetFrameLevel(barLvl)
 	optionsBtn:SetFrameLevel(barLvl)
 
@@ -547,6 +694,7 @@ function BlackList:CreateStandaloneWindow()
 	U.addStandaloneIconBarDivider(iconBar, addTargetBtn, divLvl, iconGap)
 	U.addStandaloneIconBarDivider(iconBar, editBtn, divLvl, iconGap)
 	U.addStandaloneIconBarDivider(iconBar, removeBtn, divLvl, iconGap)
+	U.addStandaloneIconBarDivider(iconBar, undoBtn, divLvl, iconGap)
 	U.addStandaloneIconBarDivider(iconBar, searchBtn, divLvl, iconGap)
 	applySearchVisibility()
 	
@@ -607,6 +755,46 @@ function BlackList:UpdateStandaloneUI()
 			filtered[#filtered + 1] = i
 		end
 	end
+	local sortKey, sortAsc = getStandaloneSortState()
+	table.sort(filtered, function(aIdx, bIdx)
+		local a = self:GetPlayerByIndex(aIdx)
+		local b = self:GetPlayerByIndex(bIdx)
+		if not a or not b then
+			return aIdx < bIdx
+		end
+		local va, vb
+		if sortKey == "name" then
+			va = string.lower(tostring(a.name or ""))
+			vb = string.lower(tostring(b.name or ""))
+		elseif sortKey == "realm" then
+			va = string.lower(tostring(a.realm or ""))
+			vb = string.lower(tostring(b.realm or ""))
+		elseif sortKey == "faction" then
+			va = self.GetFactionIdForPlayer and (self:GetFactionIdForPlayer(a) or 3) or 3
+			vb = self.GetFactionIdForPlayer and (self:GetFactionIdForPlayer(b) or 3) or 3
+		else
+			va = tonumber(a.added) or 0
+			vb = tonumber(b.added) or 0
+		end
+		if va == vb then
+			if sortKey ~= "name" then
+				local an = string.lower(tostring(a.name or ""))
+				local bn = string.lower(tostring(b.name or ""))
+				if an ~= bn then
+					if sortAsc then
+						return an < bn
+					else
+						return an > bn
+					end
+				end
+			end
+			return aIdx < bIdx
+		end
+		if sortAsc then
+			return va < vb
+		end
+		return va > vb
+	end)
 
 	local visibleCount = #filtered
 	if visibleCount > 0 then
@@ -635,6 +823,24 @@ function BlackList:UpdateStandaloneUI()
 	local removeBtn = getglobal("BlackListStandalone_RemoveButton")
 	if removeBtn then
 		if visibleCount > 0 then removeBtn:Enable() else removeBtn:Disable() end
+	end
+	local undoBtn = getglobal("BlackListStandalone_UndoButton")
+	if undoBtn then
+		local hasUndo = U.standaloneUndoStack and #U.standaloneUndoStack > 0
+		undoBtn:Enable()
+		local t = undoBtn.blackListStandaloneIconTex
+		if t then
+			if hasUndo then
+				t:SetVertexColor(1, 1, 1, 1)
+			else
+				t:SetVertexColor(0.55, 0.55, 0.55, 1)
+			end
+		end
+		if hasUndo then
+			undoBtn:SetAlpha(1)
+		else
+			undoBtn:SetAlpha(0.85)
+		end
 	end
 	local editBtn = getglobal("BlackListStandalone_EditButton")
 	if editBtn then
