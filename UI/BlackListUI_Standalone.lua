@@ -75,6 +75,7 @@ function BlackList:CreateStandaloneWindow()
 	frame.blackListResizeMinW = minWindowW
 	frame.blackListResizeMinH = 300
 	frame.blackListTitleDraggable = true
+	U.applyEvergreenTopDecor(frame, { width = 300, toY = 0.36 })
 
 	frame:SetScript("OnShow", function(self)
 		U.scheduleReapplyPanelSize(self)
@@ -335,6 +336,18 @@ function BlackList:CreateStandaloneWindow()
 					button.FactionIcon:SetAtlas(atlas)
 				end)
 				if okAtlas and button.FactionIcon:GetAtlas() then
+					button.FactionIcon:SetTexCoord(0, 1, 0, 1)
+					button.FactionIcon:SetVertexColor(1, 1, 1, 1)
+					button.FactionIcon:Show()
+				else
+					button.FactionIcon:Hide()
+				end
+			elseif BlackList.PlayerEntryNeedsInfo and BlackList:PlayerEntryNeedsInfo(player) then
+				local okAtlas = pcall(function()
+					button.FactionIcon:SetAtlas("QuestLegendaryTurnin")
+				end)
+				if okAtlas and button.FactionIcon:GetAtlas() then
+					button.FactionIcon:SetTexCoord(0, 1, 0, 1)
 					button.FactionIcon:SetVertexColor(1, 1, 1, 1)
 					button.FactionIcon:Show()
 				else
@@ -372,20 +385,18 @@ function BlackList:CreateStandaloneWindow()
 				detailsFrame.SaveReason()
 			end
 			local now = GetTime()
-			if U.standaloneListClickState.index == idx and (now - U.standaloneListClickState.t) <= U.standaloneDoubleClickWindow then
+			local isDouble = (U.standaloneListClickState.index == idx) and ((now - U.standaloneListClickState.t) <= U.standaloneDoubleClickWindow)
+			U.standaloneListClickState.t = now
+			U.standaloneListClickState.index = idx
+			BlackList:SetSelectedBlackList(idx)
+			BlackList:UpdateStandaloneUI()
+			if detailsFrame and detailsFrame:IsShown() then
+				-- When editor is already open, switch to clicked row immediately.
+				BlackList:ShowStandaloneDetails()
+			elseif isDouble then
 				U.standaloneListClickState.t = 0
 				U.standaloneListClickState.index = 0
-				BlackList:SetSelectedBlackList(idx)
-				BlackList:UpdateStandaloneUI()
 				BlackList:ShowStandaloneDetails()
-			else
-				U.standaloneListClickState.t = now
-				U.standaloneListClickState.index = idx
-				BlackList:SetSelectedBlackList(idx)
-				BlackList:UpdateStandaloneUI()
-				if detailsFrame and detailsFrame.Hide then
-					detailsFrame:Hide()
-				end
 			end
 		end)
 	end

@@ -29,7 +29,7 @@ U.floatBtnSizeMin = 32
 U.floatBtnSizeMax = 128
 U.floatBtnDefaultSize = 64
 U.standaloneIconTex = 24
-U.iconBarTop = -54
+U.iconBarTop = -38
 U.iconBarShellPad = 6
 U.listShellPad = 4
 U.sectionBackdrop = {
@@ -123,6 +123,22 @@ function U.applyStandaloneSectionBackdrop(f)
 	end
 end
 
+--- Shared top decoration config for evergreen scenario title background.
+function U.applyEvergreenTopDecor(frame, opts)
+	if not frame then
+		return
+	end
+	opts = opts or {}
+	frame.blackListTopDecorAtlas = "evergreen-scenario-titlebg"
+	frame.blackListTopDecorSrcW = 350
+	frame.blackListTopDecorSrcH = 165
+	frame.blackListTopDecorWidth = opts.width or 300
+	frame.blackListTopDecorFromY = opts.fromY or 0
+	frame.blackListTopDecorToY = opts.toY or 0.36
+	frame.blackListTopDecorOffsetY = opts.offsetY or -30
+	frame.blackListTopDecorAlpha = opts.alpha or 0.9
+end
+
 --- Vertical line between icon-bar buttons (centered in the gap).
 function U.addStandaloneIconBarDivider(iconBar, rightOfButton, frameLevel, gapOverride)
 	if not iconBar or not rightOfButton then
@@ -203,6 +219,9 @@ function U.resetGameTooltipToDefault(tooltip)
 	if tooltip.blackListFactionTrimTop then
 		tooltip.blackListFactionTrimTop:Hide()
 	end
+	if tooltip.blackListFactionTrimBottom then
+		tooltip.blackListFactionTrimBottom:Hide()
+	end
 end
 
 function U.ensureStandaloneTooltipColorHook()
@@ -262,13 +281,20 @@ function U.applyStandaloneTooltipPlayerColors(tooltip, blackListAddon, player)
 		if not tooltip.blackListFactionTrimTop then
 			tooltip.blackListFactionTrimTop = tooltip:CreateTexture(nil, "ARTWORK", nil, 2)
 		end
+		if not tooltip.blackListFactionTrimBottom then
+			tooltip.blackListFactionTrimBottom = tooltip:CreateTexture(nil, "ARTWORK", nil, 2)
+		end
 		local trim = tooltip.blackListFactionTrimTop
+		local trimBottom = tooltip.blackListFactionTrimBottom
 		local ok = pcall(function()
 			trim:SetAtlas(atlas)
 		end)
-		if ok and trim:GetAtlas() then
+		local okB = pcall(function()
+			trimBottom:SetAtlas(atlas)
+		end)
+		if ok and okB and trim:GetAtlas() and trimBottom:GetAtlas() then
 			trim:SetTexCoord(0, 1, 0, 0.36)
-			local tw = math.max(120, math.floor((tooltip:GetWidth() or 220) - 18))
+			local tw = math.max(140, math.floor((tooltip:GetWidth() or 220) + 8))
 			local srcW, srcH = 467, 141
 			if C_Texture and C_Texture.GetAtlasInfo then
 				local ok2, info = pcall(C_Texture.GetAtlasInfo, atlas)
@@ -279,11 +305,20 @@ function U.applyStandaloneTooltipPlayerColors(tooltip, blackListAddon, player)
 			local th = math.max(6, math.floor((tw * (((0.36 - 0) * srcH) / srcW)) + 0.5))
 			trim:SetSize(tw, th)
 			trim:ClearAllPoints()
-			trim:SetPoint("BOTTOM", tooltip, "TOP", 0, -2)
+			trim:SetPoint("BOTTOM", tooltip, "TOP", 0, -8)
 			trim:SetAlpha(0.9)
 			trim:Show()
+
+			trimBottom:SetTexCoord(0, 1, 2 / 3, 1)
+			local bh = math.max(6, math.floor((tw * (((1 - (2 / 3)) * srcH) / srcW)) + 0.5))
+			trimBottom:SetSize(tw, bh)
+			trimBottom:ClearAllPoints()
+			trimBottom:SetPoint("TOP", tooltip, "BOTTOM", 0, 6)
+			trimBottom:SetAlpha(0.9)
+			trimBottom:Show()
 		else
 			trim:Hide()
+			trimBottom:Hide()
 		end
 	end
 	tooltip.blackListTooltipPlayerStyled = true

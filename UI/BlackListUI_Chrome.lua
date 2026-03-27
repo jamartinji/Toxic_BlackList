@@ -134,6 +134,61 @@ function BlackList:ApplyDBMPanelChrome(frame, initialTitle, titleFontStringGloba
 	end
 	frame.BlackListTitleCloseButton = closeBtn
 
+	-- Optional top trim decoration (atlas slice) for windows using shared chrome.
+	local function applyTopDecor()
+		local atlas = frame.blackListTopDecorAtlas
+		local tex = frame.BlackListTopDecorTex
+		if not atlas or atlas == "" then
+			if tex then
+				tex:Hide()
+			end
+			return
+		end
+		if not tex then
+			tex = frame:CreateTexture(nil, "OVERLAY", nil, 2)
+			frame.BlackListTopDecorTex = tex
+		end
+		local ok = pcall(function()
+			tex:SetAtlas(atlas)
+		end)
+		if not ok or not tex:GetAtlas() then
+			tex:Hide()
+			return
+		end
+		local srcW = frame.blackListTopDecorSrcW or 350
+		local srcH = frame.blackListTopDecorSrcH or 165
+		if C_Texture and C_Texture.GetAtlasInfo then
+			local okInfo, info = pcall(C_Texture.GetAtlasInfo, atlas)
+			if okInfo and info and info.width and info.height and info.width > 0 and info.height > 0 then
+				srcW, srcH = info.width, info.height
+			end
+		end
+		local fromY = frame.blackListTopDecorFromY or 0
+		local toY = frame.blackListTopDecorToY or 0.36
+		if toY <= fromY then
+			tex:Hide()
+			return
+		end
+		local w = frame.blackListTopDecorWidth or math.min(srcW, math.max(140, math.floor((frame:GetWidth() or srcW) - 40)))
+		local h = math.max(6, math.floor((w * (((toY - fromY) * srcH) / srcW)) + 0.5))
+		tex:SetTexCoord(0, 1, fromY, toY)
+		tex:SetSize(w, h)
+		tex:ClearAllPoints()
+		tex:SetPoint("BOTTOM", frame, "TOP", 0, frame.blackListTopDecorOffsetY or -32)
+		tex:SetAlpha(frame.blackListTopDecorAlpha or 0.9)
+		tex:Show()
+	end
+	applyTopDecor()
+	if frame.HookScript and not frame.blackListTopDecorHooked then
+		frame.blackListTopDecorHooked = true
+		frame:HookScript("OnSizeChanged", function()
+			applyTopDecor()
+		end)
+		frame:HookScript("OnShow", function()
+			applyTopDecor()
+		end)
+	end
+
 	U.reapplyPanelSize(frame)
 	if frame.blackListEnableResize then
 		self:AttachBlackListResizeGrip(frame)

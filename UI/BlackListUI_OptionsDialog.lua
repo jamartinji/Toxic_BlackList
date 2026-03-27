@@ -19,10 +19,11 @@ local function CreateNewOptionsFrame()
 	f.blackListResizeMinW = 380
 	f.blackListResizeMinH = 480
 	f.blackListTitleDraggable = true
+	U.applyEvergreenTopDecor(f, { width = 300, toY = 0.36 })
 
 	BlackList:ApplyDBMPanelChrome(f, L["OPTIONS"])
 
-	local TAB_TOP = -44
+	local TAB_TOP = -38
 	local TAB_BTN_W = 100
 	local TAB_H = 24
 	local tabGeneral = CreateFrame("Button", "BlackListOptTabGeneral", f, "UIPanelButtonTemplate")
@@ -280,12 +281,13 @@ function BlackList:ShowAddPlayerDialog()
 		f:SetFrameStrata("DIALOG")
 		f:SetFrameLevel(250)
 		f.blackListTitleDraggable = true
+		U.applyEvergreenTopDecor(f, { width = 300, toY = 0.36 })
 		self:ApplyDBMPanelChrome(f, L["WINDOW_TITLE_ADD_PLAYER"] or L["ADD_PLAYER_POPUP"] or "Add player", "BlackListAddPlayerDialog_Title")
 
 		local innerW = dlgW - 48
 
 		local intro = f:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-		intro:SetPoint("TOPLEFT", f, "TOPLEFT", 24, -56)
+		intro:SetPoint("TOPLEFT", f, "TOPLEFT", 24, -38)
 		intro:SetPoint("TOPRIGHT", f, "TOPRIGHT", -24, -56)
 		intro:SetJustifyH("LEFT")
 		intro:SetSpacing(2)
