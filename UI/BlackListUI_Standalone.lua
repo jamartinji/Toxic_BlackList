@@ -122,7 +122,7 @@ function BlackList:ShowStandaloneListTooltip(anchor, playerIndex)
 	local evScore = math.floor(math.min(10, math.max(0, tonumber(player.evaluationScore) or 0)))
 	if evScore > 0 then
 		GameTooltip:AddLine(" ", 1, 1, 1)
-		local toxLab = L["TOOLTIP_BL_TOXICITY_LABEL"] or "Toxicity:"
+		local toxLab = L["TOXICITY_HEADER"] or L["TOOLTIP_BL_TOXICITY_LABEL"] or "Toxicity:"
 		local evMarkup = BlackList.GetEvaluationSkullRowMarkup and BlackList:GetEvaluationSkullRowMarkup(evScore) or nil
 		local parenMk = BlackList.GetToxicityScoreParentheticalMarkup and BlackList:GetToxicityScoreParentheticalMarkup(evScore) or ("(" .. evScore .. ")")
 		pcall(function()
@@ -441,10 +441,10 @@ function BlackList:CreateStandaloneWindow()
 			{ text = sortLabel("realm", L["SORT_REALM"] or "Realm"), notCheckable = true, isNotRadio = true, func = function()
 				setSortState("realm")
 			end },
-			{ text = sortLabel("faction", L["SORT_FACTION"] or "Faction"), notCheckable = true, isNotRadio = true, func = function()
+			{ text = sortLabel("faction", L["FACTION"] or "Faction"), notCheckable = true, isNotRadio = true, func = function()
 				setSortState("faction")
 			end },
-			{ text = sortLabel("toxicity", L["SORT_TOXICITY"] or "Toxicity"), notCheckable = true, isNotRadio = true, func = function()
+			{ text = sortLabel("toxicity", L["TOXICITY"] or "Toxicity"), notCheckable = true, isNotRadio = true, func = function()
 				setSortState("toxicity")
 			end },
 		}
@@ -501,7 +501,7 @@ function BlackList:CreateStandaloneWindow()
 				}
 			end
 			rowBlock[#rowBlock + 1] = {
-				text = L["LIST_MENU_TOXICITY"] or "Toxicity",
+				text = L["TOXICITY"] or "Toxicity",
 				notCheckable = true,
 				hasArrow = true,
 				menuList = toxList,

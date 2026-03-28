@@ -52,7 +52,19 @@ local function factionDisplayStringFromGroupId(id)
 	if id == 2 then
 		return L["HORDE"] or "Horde"
 	end
-	return L["UNKNOWN"] or "Unknown"
+	return L["UNKNOWN_FACTION"] or L["UNKNOWN"] or "Unknown"
+end
+
+--- Same atlases as standalone list row faction slot (Alliance / Horde / unknown placeholder).
+function BlackList:GetFactionListIconAtlasForGroupId(factionGroupId)
+	local id = tonumber(factionGroupId)
+	if id == 1 then
+		return "communities-create-button-wow-alliance"
+	end
+	if id == 2 then
+		return "communities-create-button-wow-horde"
+	end
+	return "QuestLegendaryTurnin"
 end
 
 --- Persisted `factionGroupId`: 1 = Alliance, 2 = Horde; absent/nil = unknown. `player.faction` is display-only (current locale).
@@ -321,7 +333,7 @@ function BlackList:FormatRichFactionLine(player)
 		end
 	end
 	if text == "" then
-		text = L["UNKNOWN"] or "Unknown"
+		text = L["UNKNOWN_FACTION"] or L["UNKNOWN"] or "Unknown"
 	end
 	local r, g, b = self:GetFactionColorRGBForPlayer(player)
 	local hex = self:RGBToHex(r, g, b)
@@ -674,7 +686,7 @@ end
 
 function GetFaction(race, returnText)
 
-	local factions = {L["ALLIANCE"], L["HORDE"], L["UNKNOWN"]};
+	local factions = { L["ALLIANCE"], L["HORDE"], L["UNKNOWN_FACTION"] or L["UNKNOWN"] }
 	local faction = 0;
 
 	if	     (race == "Human" or

@@ -1,6 +1,6 @@
 ## Interface: 120000, 120010
 ## Title: Toxic BlackList
-## Version: 1.2.0
+## Version: 1.2.1
 ## Author: Drakeinhart
 ## Notes: Keeps a list of players you don't want to play with (black listed).
 ## Notes-esES: Mantiene una lista de jugadores con los que no quieres jugar (lista negra).

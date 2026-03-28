@@ -52,7 +52,7 @@ function BlackList:BuildStandaloneDetailsSkullRow(detailsFrame, rowW, anchorFram
 	local skullLab = skullRow:CreateFontString("BlackListStandaloneDetails_SkullLabel", "OVERLAY", "GameFontNormalSmall")
 	skullLab:SetPoint("LEFT", skullRow, "LEFT", 0, 0)
 	skullLab:SetTextColor(0.85, 0.85, 0.9)
-	skullLab:SetText(L["EVALUATION_SKULLS_LABEL"] or "Toxicity:")
+	skullLab:SetText(L["TOXICITY_HEADER"] or L["EVALUATION_SKULLS_LABEL"] or "Toxicity:")
 	local prevBtn = nil
 	local gap = 4
 	local sz = 16
@@ -77,7 +77,7 @@ function BlackList:BuildStandaloneDetailsSkullRow(detailsFrame, rowW, anchorFram
 				return
 			end
 			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-			local tip = L["EVALUATION_SKULLS_TOOLTIP"]
+			local tip = L["TOXICITY_SKULLS_TOOLTIP"] or L["EVALUATION_SKULLS_TOOLTIP"]
 			if tip then
 				GameTooltip:AddLine(tip, 1, 1, 1, true)
 			else
@@ -455,7 +455,7 @@ function BlackList:CreateStandaloneDetailsLayout(detailsFrame)
 	end)
 	addRow("BlackListStandaloneDetails_Line2", "BlackListStandaloneDetails_Row2", "TOOLTIP_HINT_GUILD", "Guild", false)
 	addRow("BlackListStandaloneDetails_Line3", "BlackListStandaloneDetails_Row3", "TOOLTIP_HINT_LEVEL_RACE_CLASS", "Level, race and class", false)
-	addRow("BlackListStandaloneDetails_Line4", "BlackListStandaloneDetails_Row4", "TOOLTIP_HINT_FACTION", "Faction", false)
+	addRow("BlackListStandaloneDetails_Line4", "BlackListStandaloneDetails_Row4", "FACTION", "Faction", false)
 
 	local extBlock = detailsFrame:CreateFontString("BlackListStandaloneDetails_ExtensionBlock", "OVERLAY", "GameFontNormal")
 	extBlock:SetPoint("TOPLEFT", prev, "BOTTOMLEFT", 0, -6)

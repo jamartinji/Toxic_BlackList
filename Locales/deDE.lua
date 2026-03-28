@@ -17,6 +17,16 @@ L["BLACKLIST_MERGED_UPDATE"] = "Eintrag mit Realm und Details aktualisiert."
 L["REMOVED_FROM_BLACKLIST"] = "von der schwarzen Liste entfernt."
 
 -- ---------------------------------------------------------------------------
+-- Shared labels (reuse everywhere — avoid duplicating the same translation)
+-- ---------------------------------------------------------------------------
+
+L["FACTION"] = "Fraktion"
+L["UNKNOWN_FACTION"] = "Unbekannt"
+L["TOXICITY"] = "Toxizität"
+L["TOXICITY_HEADER"] = "Toxizität:"
+L["TOXICITY_SKULLS_TOOLTIP"] = "Linksklick auf ein Symbol: Toxizität 1–10. Rechtsklick: löschen (0)."
+
+-- ---------------------------------------------------------------------------
 -- UI — title, context menu, window & buttons
 -- ---------------------------------------------------------------------------
 
@@ -25,7 +35,6 @@ L["CONTEXT_ADD_BLACKLIST"] = "Zur schwarzen Liste hinzufügen"
 L["CONTEXT_REMOVE_BLACKLIST"] = "Von der schwarzen Liste entfernen"
 L["LIST_MENU_EDIT"] = "Eintrag bearbeiten"
 L["LIST_MENU_REMOVE"] = "Aus Liste entfernen"
-L["LIST_MENU_TOXICITY"] = "Toxizität"
 L["SHARE_LIST_TOOLTIP"] = "Schwarze Liste exportieren oder importieren (Backup oder Teilen mit anderen Toxic-BlackList-Nutzern)."
 L["EXPORT_FULL_MENU"] = "Gesamte Liste exportieren…"
 L["IMPORT_LIST_MENU"] = "Liste importieren…"
@@ -41,8 +50,6 @@ L["ADD_DIALOG_REALM_LABEL"] = "Realm (optional)"
 L["ADD_DIALOG_REALM_NOTE"] = "Realm-Namen werden nicht geprüft: Addons haben keine vollständige Realm-Liste von Blizzard. Exakten Namen verwenden (wie im Chat oder Gruppe). Leer lassen für einen generischen Namen-Eintrag, bis du den Spieler im Spiel triffst."
 L["ADD_DIALOG_CLASS_LABEL"] = "Klasse"
 L["ADD_DIALOG_CLASS_BUTTON"] = "Klasse: —"
-L["ADD_DIALOG_TOXICITY_LABEL"] = "Toxizität"
-L["ADD_DIALOG_TOXICITY_TOOLTIP"] = "Linksklick: nächster Wert (0–10, springt zurück). Rechtsklick: vorheriger."
 L["BLACKLIST_PLAYER"] = "Spieler auf schwarze Liste setzen"
 L["REMOVE_PLAYER"] = "Spieler entfernen"
 L["ROW_LOCK_TOOLTIP_UNLOCKED"] = "Entsperrt"
@@ -73,8 +80,6 @@ L["BUTTON_SAVE"] = "Save"
 L["TOOLTIP_HINT_NAME_REALM"] = "Player name and realm"
 L["TOOLTIP_HINT_GUILD"] = "Guild"
 L["TOOLTIP_HINT_LEVEL_RACE_CLASS"] = "Level, race and class"
-L["TOOLTIP_HINT_FACTION"] = "Faction"
-L["TOOLTIP_BL_TOXICITY_LABEL"] = "Toxizität:"
 
 -- ---------------------------------------------------------------------------
 -- Reason, bindings, factions & unknowns
@@ -147,8 +152,6 @@ L["OPT_PREVENT_MY_INVITES"] = "Eigene Einladungen an Spieler der schwarzen Liste
 L["OPT_MUTED_CHAT"] = "Nachrichten erlaubt"
 L["OPT_MUTED_CHAT_UNMUTE"] = "Nachrichten ignoriert"
 L["MUTED_CHECKBOX_LABEL"] = "Chat ignorieren"
-L["EVALUATION_SKULLS_LABEL"] = "Toxizität:"
-L["EVALUATION_SKULLS_TOOLTIP"] = "Linksklick auf ein Symbol: Toxizität 1–10. Rechtsklick: löschen (0)."
 L["OPT_WARN_PARTY_JOIN"] = "Warnen, wenn Spieler der schwarzen Liste der Gruppe beitreten"
 L["OPT_MUTE_PROXIMITY_REST"] = "Warnungen in Städten deaktivieren"
 L["TOOLTIP_EDIT_BTN"] = "Bearbeiten"
@@ -185,8 +188,6 @@ L["SORT_BY_TITLE"] = "Sortieren nach..."
 L["SORT_DATE"] = "Datum"
 L["SORT_NAME"] = "Name"
 L["SORT_REALM"] = "Realm"
-L["SORT_FACTION"] = "Fraktion"
-L["SORT_TOXICITY"] = "Toxizität"
 L["UNDO_DELETE"] = "Ruckgangig"
 L["UNDO_NOTHING"] = "Nichts zum Ruckgangigmachen"
 L["FILTER_PLACEHOLDER"] = "Filtern..."

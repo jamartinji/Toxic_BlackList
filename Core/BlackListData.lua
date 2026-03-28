@@ -299,7 +299,7 @@ function BlackList:CollectPlayerFieldsFromUnit(unit)
 		factionGroupId = 2
 		factionStr = L["HORDE"] or "Horde"
 	else
-		factionStr = L["UNKNOWN"] or "Unknown"
+		factionStr = L["UNKNOWN_FACTION"] or L["UNKNOWN"] or "Unknown"
 	end
 	return {
 		level = level,
@@ -591,8 +591,8 @@ function BlackList:AddPlayer(player, reason)
 
 end
 
---- Manual add from dialog: optional realm (not validated against Blizzard), class token, toxicity 0–10.
-function BlackList:AddPlayerManual(name, realm, reason, classToken, evaluationScore)
+--- Manual add from dialog: optional realm (not validated against Blizzard), class token, toxicity 0–10, optional faction (1 Alliance, 2 Horde, else unknown).
+function BlackList:AddPlayerManual(name, realm, reason, classToken, evaluationScore, factionGroupId)
 	if not name or strtrim(tostring(name)) == "" then
 		return false
 	end
@@ -602,6 +602,16 @@ function BlackList:AddPlayerManual(name, realm, reason, classToken, evaluationSc
 	classToken = strtrim(tostring(classToken or ""))
 	local eval = tonumber(evaluationScore) or 0
 	eval = math.max(0, math.min(10, math.floor(eval + 0.5)))
+	local fg = tonumber(factionGroupId)
+	local factionStr = ""
+	local fgStored = nil
+	if fg == 1 then
+		factionStr = L["ALLIANCE"] or "Alliance"
+		fgStored = 1
+	elseif fg == 2 then
+		factionStr = L["HORDE"] or "Horde"
+		fgStored = 2
+	end
 	if (GetLocale() ~= "zhTW") and (GetLocale() ~= "zhCN") and (GetLocale() ~= "koKR") then
 		local _, len = string.find(name, "[%z\1-\127\194-\244][\128-\191]*")
 		if len then
@@ -625,8 +635,8 @@ function BlackList:AddPlayerManual(name, realm, reason, classToken, evaluationSc
 		["raceToken"] = "",
 		["realm"] = realm,
 		["guild"] = "",
-		["faction"] = "",
-		["factionGroupId"] = nil,
+		["faction"] = factionStr,
+		["factionGroupId"] = fgStored,
 		["manualAdd"] = true,
 		["updatedAt"] = nil,
 		["muted"] = false,
