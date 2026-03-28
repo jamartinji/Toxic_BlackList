@@ -60,6 +60,18 @@ local function apiBoolIsTrue(v)
 	return false
 end
 
+--- Copy API strings to plain literals (matches BlackListData SanitizeApiString; helps list lookups).
+--- pcall: Retail may return "secret" strings that error on implicit conversion (e.g. string.format in some contexts).
+local function sanitizeApiString(s)
+	if s == nil then
+		return ""
+	end
+	local ok, out = pcall(function()
+		return strtrim(string.format("%s", s))
+	end)
+	return (ok and out) or ""
+end
+
 local function BlackList_RefreshBlacklistedUnitsInGroup()
 	if not IsInGroup() then
 		return
@@ -332,18 +344,6 @@ function BlackList:ScanBlacklistedTargetingPlayer()
 	for i = 1, 5 do
 		checkUnit("arena" .. i)
 	end
-end
-
---- Copy API strings to plain literals (matches BlackListData SanitizeApiString; helps list lookups).
---- pcall: Retail may return "secret" strings that error on implicit conversion (e.g. string.format in some contexts).
-local function sanitizeApiString(s)
-	if s == nil then
-		return ""
-	end
-	local ok, out = pcall(function()
-		return strtrim(string.format("%s", s))
-	end)
-	return (ok and out) or ""
 end
 
 --- UnitGUID may return a secret string; never strsub/compare the raw value — copy to a plain string first.
