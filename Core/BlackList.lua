@@ -504,7 +504,7 @@ function BlackList:TryAppendToxicityToGameTooltip(tooltip)
 	if sc <= 0 then
 		return
 	end
-	local label = L["TOOLTIP_BL_TOXICITY_LABEL"] or "Toxicity:"
+	local label = L["TOXICITY_HEADER"] or L["TOOLTIP_BL_TOXICITY_LABEL"] or "Toxicity:"
 	local skulls = (self.GetEvaluationSkullRowMarkup and self:GetEvaluationSkullRowMarkup(sc)) or nil
 	local paren = self.GetToxicityScoreParentheticalMarkup and self:GetToxicityScoreParentheticalMarkup(sc) or ("(" .. sc .. ")")
 	local line = label .. "  "

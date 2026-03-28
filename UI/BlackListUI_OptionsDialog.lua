@@ -29,15 +29,66 @@ local function classAtlasForFileToken(classFile)
 	return nil
 end
 
-local function refreshAddDialogToxicIcons(f)
-	if not f or not f.blToxicSkullTex then
+-- Gap between atlas icon and label on UIDropDownMenuTemplate (closed state).
+local ADD_DIALOG_DD_ICON_TEXT_GAP = 8
+-- Open list: negative shifts icon left from row right edge (clears DropDownList border).
+local ADD_DIALOG_DD_MENU_ICON_XOFFSET = -12
+
+local function applyAddDialogDropdownIconTextGap(dropdownFrame)
+	if not dropdownFrame then
 		return
 	end
-	local sc = tonumber(f.blToxicityScore) or 0
-	sc = math.floor(math.min(10, math.max(0, sc)))
-	U.applyToxicitySkullSingleState(f.blToxicSkullTex, sc)
-	if f.blToxicValueText then
-		f.blToxicValueText:SetText(tostring(sc))
+	local btn = dropdownFrame.Button
+	if not btn and dropdownFrame.GetName then
+		local n = dropdownFrame:GetName()
+		if n then
+			btn = _G[n .. "Button"]
+		end
+	end
+	if not btn then
+		return
+	end
+	local icon = btn.Icon
+	if not icon and btn.GetName then
+		local bn = btn:GetName()
+		if bn then
+			icon = _G[bn .. "Icon"]
+		end
+	end
+	local text = btn.Text
+	if not text and btn.GetName then
+		local bn = btn:GetName()
+		if bn then
+			text = _G[bn .. "Text"]
+		end
+	end
+	if not icon or not text or not text.ClearAllPoints then
+		return
+	end
+	text:ClearAllPoints()
+	text:SetPoint("LEFT", icon, "RIGHT", ADD_DIALOG_DD_ICON_TEXT_GAP, 0)
+	if btn.GetWidth then
+		text:SetPoint("RIGHT", btn, "RIGHT", -28, 0)
+	end
+end
+
+local function refreshAddDialogToxicIcons(f)
+	if not f or not f.blAddSkullButtons then
+		return
+	end
+	local sc = math.floor(math.min(10, math.max(0, tonumber(f.blToxicityScore) or 0)))
+	for i = 1, 10 do
+		local btn = f.blAddSkullButtons[i]
+		if btn and btn.skullTex then
+			U.applyToxicityRowIconVisual(btn.skullTex, i <= sc)
+		end
+	end
+	if f.blToxicParenText then
+		if BlackList.GetToxicityScoreParentheticalMarkup then
+			f.blToxicParenText:SetText(BlackList:GetToxicityScoreParentheticalMarkup(sc))
+		else
+			f.blToxicParenText:SetText("(" .. sc .. ")")
+		end
 	end
 end
 
@@ -313,7 +364,7 @@ end
 
 --- Add by name: same NineSlice chrome as the main window (title bar + close).
 function BlackList:ShowAddPlayerDialog()
-	local dlgW, dlgH = 360, 400
+	local dlgW, dlgH = 360, 452
 	local f = _G["BlackListAddPlayerDialog"]
 	if not f then
 		f = U.createChromeParent("BlackListAddPlayerDialog", UIParent, dlgW, dlgH)
@@ -350,15 +401,23 @@ function BlackList:ShowAddPlayerDialog()
 		ebRealm:SetMaxLetters(64)
 		f.blRealmEdit = ebRealm
 
-		local lblClass = f:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-		lblClass:SetPoint("TOPLEFT", ebRealm, "BOTTOMLEFT", -4, -10)
+		-- Two equal columns: label above each dropdown (avoids faction label sitting mid-gap).
+		local classFactionGap = 10
+		local ddColW = math.max(120, math.floor((innerW - classFactionGap) / 2))
+		local classFactionRow = CreateFrame("Frame", nil, f)
+		classFactionRow:SetPoint("TOPLEFT", ebRealm, "BOTTOMLEFT", -4, -10)
+		classFactionRow:SetSize(innerW, 52)
+		f.blClassFactionRow = classFactionRow
+
+		local lblClass = classFactionRow:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+		lblClass:SetPoint("TOPLEFT", classFactionRow, "TOPLEFT", 0, 0)
 		lblClass:SetJustifyH("LEFT")
 		f.blLblClass = lblClass
 
-		local ddClass = CreateFrame("Frame", "BlackListAddPlayerDialog_ClassDD", f, "UIDropDownMenuTemplate")
+		local ddClass = CreateFrame("Frame", "BlackListAddPlayerDialog_ClassDD", classFactionRow, "UIDropDownMenuTemplate")
 		ddClass:SetPoint("TOPLEFT", lblClass, "BOTTOMLEFT", -16, -4)
 		if ddClass.SetWidth then
-			ddClass:SetWidth(math.max(200, innerW + 24))
+			ddClass:SetWidth(ddColW)
 		end
 		f.blClassDD = ddClass
 		ddClass.initialize = function()
@@ -372,16 +431,19 @@ function BlackList:ShowAddPlayerDialog()
 				if UIDropDownMenu_SetText then
 					UIDropDownMenu_SetText(ddClass, unk)
 				end
+				applyAddDialogDropdownIconTextGap(ddClass)
 			end
 			UIDropDownMenu_AddButton(z)
 			for ix = 1, #ADD_DIALOG_CLASS_FILES do
 				local file = ADD_DIALOG_CLASS_FILES[ix]
 				local info = UIDropDownMenu_CreateInfo()
-				info.text = localizedClassLabel(file)
-				info.value = file
 				local at = classAtlasForFileToken(file)
+				local lab = localizedClassLabel(file)
+				info.text = at and (" " .. lab) or lab
+				info.value = file
 				if at then
 					info.icon = at
+					info.iconXOffset = ADD_DIALOG_DD_MENU_ICON_XOFFSET
 				end
 				info.func = function()
 					f.blSelectedClassToken = file
@@ -389,6 +451,7 @@ function BlackList:ShowAddPlayerDialog()
 					if UIDropDownMenu_SetText then
 						UIDropDownMenu_SetText(ddClass, localizedClassLabel(file))
 					end
+					applyAddDialogDropdownIconTextGap(ddClass)
 				end
 				UIDropDownMenu_AddButton(info)
 			end
@@ -396,63 +459,136 @@ function BlackList:ShowAddPlayerDialog()
 		if UIDropDownMenu_Initialize then
 			UIDropDownMenu_Initialize(ddClass, ddClass.initialize)
 		end
+		applyAddDialogDropdownIconTextGap(ddClass)
 
-		local lblToxic = f:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-		lblToxic:SetPoint("TOPLEFT", ddClass, "BOTTOMLEFT", 16, -10)
-		lblToxic:SetJustifyH("LEFT")
-		f.blLblToxic = lblToxic
+		local lblFaction = classFactionRow:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+		lblFaction:SetPoint("TOPLEFT", classFactionRow, "TOPLEFT", ddColW + classFactionGap, 0)
+		lblFaction:SetJustifyH("LEFT")
+		f.blLblFaction = lblFaction
+
+		local ddFaction = CreateFrame("Frame", "BlackListAddPlayerDialog_FactionDD", classFactionRow, "UIDropDownMenuTemplate")
+		ddFaction:SetPoint("TOPLEFT", lblFaction, "BOTTOMLEFT", -16, -4)
+		if ddFaction.SetWidth then
+			ddFaction:SetWidth(ddColW)
+		end
+		f.blFactionDD = ddFaction
+		ddFaction.initialize = function()
+			local unk = L["UNKNOWN_FACTION"] or L["UNKNOWN"] or "Unknown"
+			local z = UIDropDownMenu_CreateInfo()
+			z.text = " " .. unk
+			z.value = 0
+			if BlackList.GetFactionListIconAtlasForGroupId then
+				z.icon = BlackList:GetFactionListIconAtlasForGroupId(0)
+				z.iconXOffset = ADD_DIALOG_DD_MENU_ICON_XOFFSET
+			end
+			z.func = function()
+				f.blFactionGroupId = 0
+				UIDropDownMenu_SetSelectedValue(ddFaction, 0)
+				if UIDropDownMenu_SetText then
+					UIDropDownMenu_SetText(ddFaction, unk)
+				end
+				applyAddDialogDropdownIconTextGap(ddFaction)
+			end
+			UIDropDownMenu_AddButton(z)
+			local infoA = UIDropDownMenu_CreateInfo()
+			infoA.text = " " .. (L["ALLIANCE"] or "Alliance")
+			infoA.value = 1
+			if BlackList.GetFactionListIconAtlasForGroupId then
+				infoA.icon = BlackList:GetFactionListIconAtlasForGroupId(1)
+				infoA.iconXOffset = ADD_DIALOG_DD_MENU_ICON_XOFFSET
+			end
+			infoA.func = function()
+				f.blFactionGroupId = 1
+				UIDropDownMenu_SetSelectedValue(ddFaction, 1)
+				if UIDropDownMenu_SetText then
+					UIDropDownMenu_SetText(ddFaction, L["ALLIANCE"] or "Alliance")
+				end
+				applyAddDialogDropdownIconTextGap(ddFaction)
+			end
+			UIDropDownMenu_AddButton(infoA)
+			local infoH = UIDropDownMenu_CreateInfo()
+			infoH.text = " " .. (L["HORDE"] or "Horde")
+			infoH.value = 2
+			if BlackList.GetFactionListIconAtlasForGroupId then
+				infoH.icon = BlackList:GetFactionListIconAtlasForGroupId(2)
+				infoH.iconXOffset = ADD_DIALOG_DD_MENU_ICON_XOFFSET
+			end
+			infoH.func = function()
+				f.blFactionGroupId = 2
+				UIDropDownMenu_SetSelectedValue(ddFaction, 2)
+				if UIDropDownMenu_SetText then
+					UIDropDownMenu_SetText(ddFaction, L["HORDE"] or "Horde")
+				end
+				applyAddDialogDropdownIconTextGap(ddFaction)
+			end
+			UIDropDownMenu_AddButton(infoH)
+		end
+		if UIDropDownMenu_Initialize then
+			UIDropDownMenu_Initialize(ddFaction, ddFaction.initialize)
+		end
+		applyAddDialogDropdownIconTextGap(ddFaction)
 
 		local toxicRow = CreateFrame("Frame", nil, f)
-		toxicRow:SetSize(innerW, 28)
-		toxicRow:SetPoint("TOPLEFT", lblToxic, "BOTTOMLEFT", 0, -4)
+		toxicRow:SetHeight(24)
+		toxicRow:SetWidth(innerW)
+		-- Match UIDropDownMenuTemplate -16 inset so toxicity lines up under the class combo.
+		-- Align with name/realm edit insets (lbl 24 + 4), not the class UIDropDown -16 template shift.
+		toxicRow:SetPoint("TOPLEFT", classFactionRow, "BOTTOMLEFT", 4, -8)
 		f.blToxicRow = toxicRow
 
-		local toxVal = toxicRow:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-		toxVal:SetPoint("LEFT", toxicRow, "LEFT", 0, 0)
-		toxVal:SetJustifyH("LEFT")
-		f.blToxicValueText = toxVal
+		local skullLab = toxicRow:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+		skullLab:SetPoint("LEFT", toxicRow, "LEFT", 0, 0)
+		skullLab:SetTextColor(0.85, 0.85, 0.9)
+		f.blToxicSkullLabel = skullLab
 
-		local szTox = 22
-		local tbtn = CreateFrame("Button", nil, toxicRow)
-		tbtn:SetSize(szTox, szTox)
-		tbtn:SetPoint("LEFT", toxVal, "RIGHT", 10, 0)
-		tbtn:SetFrameLevel((toxicRow:GetFrameLevel() or 0) + 3)
-		local ttx = tbtn:CreateTexture(nil, "ARTWORK")
-		ttx:SetAllPoints()
-		f.blToxicSkullTex = ttx
-		U.applyToxicityRowIconAtlas(ttx)
-		tbtn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-		tbtn:SetScript("OnEnter", function(self)
-			if not GameTooltip then
-				return
-			end
-			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-			local tip = L["ADD_DIALOG_TOXICITY_TOOLTIP"]
-			if tip then
-				GameTooltip:AddLine(tip, 1, 1, 1, true)
+		f.blAddSkullButtons = {}
+		local prevSkullBtn = nil
+		local skullGap = 4
+		local skullSz = 16
+		for i = 1, 10 do
+			local btn = CreateFrame("Button", "BlackListAddPlayerDialog_SkullBtn" .. i, toxicRow)
+			btn:SetSize(skullSz, skullSz)
+			btn:SetID(i)
+			if i == 1 then
+				btn:SetPoint("LEFT", skullLab, "RIGHT", 8, 0)
 			else
-				GameTooltip:AddLine("Left-click: next (0–10, wraps). Right-click: previous.", 1, 1, 1, true)
+				btn:SetPoint("LEFT", prevSkullBtn, "RIGHT", skullGap, 0)
 			end
-			GameTooltip:Show()
-		end)
-		tbtn:SetScript("OnLeave", GameTooltip_Hide)
-		tbtn:SetScript("OnClick", function(_, button)
-			local cur = math.floor(math.min(10, math.max(0, tonumber(f.blToxicityScore) or 0)))
-			if button == "RightButton" then
-				cur = cur - 1
-				if cur < 0 then
-					cur = 10
+			prevSkullBtn = btn
+			btn:SetFrameLevel((toxicRow:GetFrameLevel() or 0) + 3)
+			local tex = btn:CreateTexture(nil, "ARTWORK")
+			tex:SetAllPoints()
+			btn.skullTex = tex
+			U.applyToxicityRowIconAtlas(tex)
+			btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+			btn:SetScript("OnEnter", function(self)
+				if not GameTooltip then
+					return
 				end
-			else
-				cur = cur + 1
-				if cur > 10 then
-					cur = 0
+				GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+				local tip = L["TOXICITY_SKULLS_TOOLTIP"] or L["EVALUATION_SKULLS_TOOLTIP"]
+				if tip then
+					GameTooltip:AddLine(tip, 1, 1, 1, true)
+				else
+					GameTooltip:AddLine("Left-click an icon to set toxicity (1–10). Right-click to clear (0).", 1, 1, 1, true)
 				end
-			end
-			f.blToxicityScore = cur
-			refreshAddDialogToxicIcons(f)
-		end)
-		f.blToxicSkullBtn = tbtn
+				GameTooltip:Show()
+			end)
+			btn:SetScript("OnLeave", GameTooltip_Hide)
+			btn:SetScript("OnClick", function(self, button)
+				if button == "RightButton" then
+					f.blToxicityScore = 0
+				else
+					f.blToxicityScore = self:GetID()
+				end
+				refreshAddDialogToxicIcons(f)
+			end)
+			f.blAddSkullButtons[i] = btn
+		end
+		local skullParen = toxicRow:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+		skullParen:SetPoint("LEFT", prevSkullBtn, "RIGHT", 6, 0)
+		skullParen:SetJustifyH("LEFT")
+		f.blToxicParenText = skullParen
 
 		local lblReason = f:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
 		lblReason:SetPoint("TOPLEFT", toxicRow, "BOTTOMLEFT", 0, -10)
@@ -470,10 +606,16 @@ function BlackList:ShowAddPlayerDialog()
 		})
 		reasonBg:SetBackdropColor(0.04, 0.04, 0.04, 0.95)
 		reasonBg:SetBackdropBorderColor(0.5, 0.45, 0.35, 0.75)
-		reasonBg:SetSize(innerW, 72)
-		reasonBg:SetPoint("TOPLEFT", lblReason, "BOTTOMLEFT", -4, -4)
+		reasonBg:SetSize(innerW, 120)
+		reasonBg:SetPoint("TOPLEFT", lblReason, "BOTTOMLEFT", 0, -4)
 
-		local ebReason = CreateFrame("EditBox", "BlackListAddPlayerDialog_Reason", reasonBg)
+		local reasonSbReserve = 18
+		local reasonScroll = CreateFrame("ScrollFrame", "BlackListAddPlayerDialog_ReasonScroll", reasonBg, "ScrollFrameTemplate")
+		reasonScroll:SetPoint("TOPLEFT", reasonBg, "TOPLEFT", 6, -6)
+		reasonScroll:SetPoint("BOTTOMRIGHT", reasonBg, "BOTTOMRIGHT", -6 - reasonSbReserve, 6)
+		f.blReasonScroll = reasonScroll
+
+		local ebReason = CreateFrame("EditBox", "BlackListAddPlayerDialog_Reason", reasonScroll)
 		ebReason:SetMultiLine(true)
 		if GameFontHighlightSmall then
 			ebReason:SetFontObject(GameFontHighlightSmall)
@@ -482,10 +624,35 @@ function BlackList:ShowAddPlayerDialog()
 		end
 		ebReason:SetMaxLetters(500)
 		ebReason:SetAutoFocus(false)
-		ebReason:SetPoint("TOPLEFT", reasonBg, "TOPLEFT", 8, -8)
-		ebReason:SetPoint("BOTTOMRIGHT", reasonBg, "BOTTOMRIGHT", -8, 8)
+		ebReason:SetHeight(400)
 		ebReason:SetTextInsets(2, 2, 4, 4)
+		reasonScroll:SetScrollChild(ebReason)
 		f.blReasonEdit = ebReason
+
+		local function syncAddDialogReasonScroll()
+			local w = reasonScroll:GetWidth()
+			if w > 32 then
+				ebReason:SetWidth(w)
+			end
+			if reasonScroll.UpdateScrollChildRect then
+				pcall(function()
+					reasonScroll:UpdateScrollChildRect()
+				end)
+			end
+		end
+		reasonScroll:SetScript("OnSizeChanged", syncAddDialogReasonScroll)
+		reasonScroll:SetScript("OnShow", syncAddDialogReasonScroll)
+		ebReason:SetScript("OnTextChanged", function()
+			syncAddDialogReasonScroll()
+		end)
+		local rsb = reasonScroll.ScrollBar
+		if rsb and rsb.ClearAllPoints then
+			rsb:ClearAllPoints()
+			rsb:SetPoint("TOPRIGHT", reasonScroll, "TOPRIGHT", 18, -2)
+			rsb:SetPoint("BOTTOMRIGHT", reasonScroll, "BOTTOMRIGHT", 18, 2)
+			rsb:SetFrameLevel((reasonScroll:GetFrameLevel() or 0) + 3)
+		end
+		syncAddDialogReasonScroll()
 
 		local btnAccept = CreateFrame("Button", "BlackListAddPlayerDialog_Accept", f, "UIPanelButtonTemplate")
 		btnAccept:SetSize(100, 24)
@@ -498,7 +665,7 @@ function BlackList:ShowAddPlayerDialog()
 			if n == "" then
 				return
 			end
-			BlackList:AddPlayerManual(n, realm, r, f.blSelectedClassToken or "", f.blToxicityScore or 0)
+			BlackList:AddPlayerManual(n, realm, r, f.blSelectedClassToken or "", f.blToxicityScore or 0, f.blFactionGroupId or 0)
 			f:Hide()
 		end)
 
@@ -530,6 +697,19 @@ function BlackList:ShowAddPlayerDialog()
 		if f.HookScript then
 			f:HookScript("OnShow", function(self)
 				U.scheduleReapplyPanelSize(self)
+				applyAddDialogDropdownIconTextGap(self.blClassDD)
+				applyAddDialogDropdownIconTextGap(self.blFactionDD)
+				if self.blReasonScroll and self.blReasonScroll:GetWidth() and self.blReasonScroll:GetWidth() > 32 then
+					local eb = self.blReasonEdit
+					if eb then
+						eb:SetWidth(self.blReasonScroll:GetWidth())
+					end
+					if self.blReasonScroll.UpdateScrollChildRect then
+						pcall(function()
+							self.blReasonScroll:UpdateScrollChildRect()
+						end)
+					end
+				end
 			end)
 		end
 	end
@@ -555,12 +735,16 @@ function BlackList:ShowAddPlayerDialog()
 	if f.blLblClass then
 		f.blLblClass:SetText(L["ADD_DIALOG_CLASS_LABEL"] or "Class")
 	end
-	if f.blLblToxic then
-		f.blLblToxic:SetText(L["ADD_DIALOG_TOXICITY_LABEL"] or "Toxicity")
+	if f.blLblFaction then
+		f.blLblFaction:SetText(L["FACTION"] or "Faction")
+	end
+	if f.blToxicSkullLabel then
+		f.blToxicSkullLabel:SetText(L["TOXICITY_HEADER"] or L["EVALUATION_SKULLS_LABEL"] or "Toxicity:")
 	end
 	f.blLblReason:SetText(L["REASON"] or "Reason")
 	f.blSelectedClassToken = ""
 	f.blToxicityScore = 0
+	f.blFactionGroupId = 0
 	if f.blClassDD and UIDropDownMenu_Initialize and f.blClassDD.initialize then
 		UIDropDownMenu_Initialize(f.blClassDD, f.blClassDD.initialize)
 		if UIDropDownMenu_SetSelectedValue then
@@ -569,6 +753,17 @@ function BlackList:ShowAddPlayerDialog()
 		if UIDropDownMenu_SetText then
 			UIDropDownMenu_SetText(f.blClassDD, L["UNKNOWN_CLASS"] or "Unknown")
 		end
+		applyAddDialogDropdownIconTextGap(f.blClassDD)
+	end
+	if f.blFactionDD and UIDropDownMenu_Initialize and f.blFactionDD.initialize then
+		UIDropDownMenu_Initialize(f.blFactionDD, f.blFactionDD.initialize)
+		if UIDropDownMenu_SetSelectedValue then
+			UIDropDownMenu_SetSelectedValue(f.blFactionDD, 0)
+		end
+		if UIDropDownMenu_SetText then
+			UIDropDownMenu_SetText(f.blFactionDD, L["UNKNOWN_FACTION"] or L["UNKNOWN"] or "Unknown")
+		end
+		applyAddDialogDropdownIconTextGap(f.blFactionDD)
 	end
 	refreshAddDialogToxicIcons(f)
 	f:ClearAllPoints()

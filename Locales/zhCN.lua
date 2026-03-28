@@ -17,6 +17,16 @@ L["BLACKLIST_MERGED_UPDATE"] = "已用服务器与详情更新条目。"
 L["REMOVED_FROM_BLACKLIST"] = "已从黑名单中移除。"
 
 -- ---------------------------------------------------------------------------
+-- Shared labels (reuse everywhere — avoid duplicating the same translation)
+-- ---------------------------------------------------------------------------
+
+L["FACTION"] = "阵营"
+L["UNKNOWN_FACTION"] = "未知"
+L["TOXICITY"] = "毒性"
+L["TOXICITY_HEADER"] = "毒性："
+L["TOXICITY_SKULLS_TOOLTIP"] = "左键点击图标：毒性 1–10。右键：清除（0）。"
+
+-- ---------------------------------------------------------------------------
 -- UI — title, context menu, window & buttons
 -- ---------------------------------------------------------------------------
 
@@ -25,7 +35,6 @@ L["CONTEXT_ADD_BLACKLIST"] = "加入黑名单"
 L["CONTEXT_REMOVE_BLACKLIST"] = "从黑名单移除"
 L["LIST_MENU_EDIT"] = "编辑条目"
 L["LIST_MENU_REMOVE"] = "从列表移除"
-L["LIST_MENU_TOXICITY"] = "毒性"
 L["SHARE_LIST_TOOLTIP"] = "导出或导入黑名单，用于备份或与其他 Toxic BlackList 用户分享。"
 L["EXPORT_FULL_MENU"] = "导出整个列表…"
 L["IMPORT_LIST_MENU"] = "导入列表…"
@@ -41,8 +50,6 @@ L["ADD_DIALOG_REALM_LABEL"] = "服务器（可选）"
 L["ADD_DIALOG_REALM_NOTE"] = "无法验证服务器：插件无法获取暴雪的完整服务器列表。请使用聊天或队伍中的准确名称。留空则仅为按名称记录，直到你在游戏中遇到该玩家。"
 L["ADD_DIALOG_CLASS_LABEL"] = "职业"
 L["ADD_DIALOG_CLASS_BUTTON"] = "职业：—"
-L["ADD_DIALOG_TOXICITY_LABEL"] = "毒性"
-L["ADD_DIALOG_TOXICITY_TOOLTIP"] = "左键：下一个数值（0–10，循环）。右键：上一个。"
 L["BLACKLIST_PLAYER"] = "将玩家加入黑名单"
 L["REMOVE_PLAYER"] = "移除玩家"
 L["ROW_LOCK_TOOLTIP_UNLOCKED"] = "已解锁"
@@ -73,8 +80,6 @@ L["BUTTON_SAVE"] = "保存"
 L["TOOLTIP_HINT_NAME_REALM"] = "角色名与服务器"
 L["TOOLTIP_HINT_GUILD"] = "公会"
 L["TOOLTIP_HINT_LEVEL_RACE_CLASS"] = "等级、种族与职业"
-L["TOOLTIP_HINT_FACTION"] = "阵营"
-L["TOOLTIP_BL_TOXICITY_LABEL"] = "毒性："
 
 -- ---------------------------------------------------------------------------
 -- Reason, bindings, factions & unknowns
@@ -147,8 +152,6 @@ L["OPT_PREVENT_MY_INVITES"] = "阻止你邀请黑名单玩家"
 L["OPT_MUTED_CHAT"] = "允许消息"
 L["OPT_MUTED_CHAT_UNMUTE"] = "已忽略消息"
 L["MUTED_CHECKBOX_LABEL"] = "忽略聊天消息"
-L["EVALUATION_SKULLS_LABEL"] = "毒性："
-L["EVALUATION_SKULLS_TOOLTIP"] = "左键点击图标：毒性 1–10。右键：清除（0）。"
 L["OPT_WARN_PARTY_JOIN"] = "黑名单玩家加入队伍时发出警告"
 L["OPT_MUTE_PROXIMITY_REST"] = "在城市关闭提示"
 L["TOOLTIP_EDIT_BTN"] = "编辑"
@@ -185,8 +188,6 @@ L["SORT_BY_TITLE"] = "排序方式..."
 L["SORT_DATE"] = "日期"
 L["SORT_NAME"] = "名称"
 L["SORT_REALM"] = "服务器"
-L["SORT_FACTION"] = "阵营"
-L["SORT_TOXICITY"] = "毒性"
 L["UNDO_DELETE"] = "撤销"
 L["UNDO_NOTHING"] = "无可撤销"
 L["FILTER_PLACEHOLDER"] = "过滤..."
