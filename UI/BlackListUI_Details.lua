@@ -6,7 +6,7 @@ local applyTrimDecor
 
 --- Insert mute checkbox for layouts created before the muted row existed.
 function BlackList:InsertMutedRowInDetails(detailsFrame)
-	if not detailsFrame or getglobal("BlackListStandaloneDetails_MutedCb") then
+	if not detailsFrame or getglobal("BlackListStandaloneDetails_MuteBtn") or getglobal("BlackListStandaloneDetails_MutedCb") then
 		return
 	end
 	local anchor = getglobal("BlackListStandaloneDetails_ExtensionBlock")
@@ -27,7 +27,7 @@ function BlackList:InsertMutedRowInDetails(detailsFrame)
 	mutedCb:SetPoint("TOPLEFT", mutedRow, "TOPLEFT", 0, 0)
 	local mutedLabel = mutedRow:CreateFontString("BlackListStandaloneDetails_MutedLabel", "OVERLAY", "GameFontNormal")
 	mutedLabel:SetPoint("LEFT", mutedCb, "RIGHT", 4, 0)
-	mutedLabel:SetText(L["OPT_MUTED_CHAT"] or "Mute chat from this player")
+	mutedLabel:SetText(L["MUTED_CHECKBOX_LABEL"] or "Ignore chat messages")
 	mutedCb:SetScript("OnClick", function(self)
 		local idx = detailsFrame.currentPlayerIndex
 		if idx and idx > 0 then
@@ -38,6 +38,135 @@ function BlackList:InsertMutedRowInDetails(detailsFrame)
 		end
 	end)
 	reasonHeader:SetPoint("TOPLEFT", mutedRow, "BOTTOMLEFT", 0, -12)
+end
+
+--- Create 10 skull rating buttons (0–10) on the edit panel; anchor below `anchorFrame`.
+function BlackList:BuildStandaloneDetailsSkullRow(detailsFrame, rowW, anchorFrame)
+	if not detailsFrame or not anchorFrame or getglobal("BlackListStandaloneDetails_SkullRow") then
+		return
+	end
+	local skullRow = CreateFrame("Frame", "BlackListStandaloneDetails_SkullRow", detailsFrame)
+	skullRow:SetHeight(22)
+	skullRow:SetWidth(rowW)
+	skullRow:SetPoint("TOPLEFT", anchorFrame, "BOTTOMLEFT", 0, -10)
+	local skullLab = skullRow:CreateFontString("BlackListStandaloneDetails_SkullLabel", "OVERLAY", "GameFontNormalSmall")
+	skullLab:SetPoint("LEFT", skullRow, "LEFT", 0, 0)
+	skullLab:SetTextColor(0.85, 0.85, 0.9)
+	skullLab:SetText(L["EVALUATION_SKULLS_LABEL"] or "Toxicity:")
+	local prevBtn = nil
+	local gap = 4
+	local sz = 16
+	for i = 1, 10 do
+		local btn = CreateFrame("Button", "BlackListStandaloneDetails_SkullBtn" .. i, skullRow)
+		btn:SetSize(sz, sz)
+		btn:SetID(i)
+		if i == 1 then
+			btn:SetPoint("LEFT", skullLab, "RIGHT", 8, 0)
+		else
+			btn:SetPoint("LEFT", prevBtn, "RIGHT", gap, 0)
+		end
+		prevBtn = btn
+		btn:SetFrameLevel((skullRow:GetFrameLevel() or 0) + 3)
+		local tex = btn:CreateTexture(nil, "ARTWORK")
+		tex:SetAllPoints()
+		btn.skullTex = tex
+		U.applyToxicityRowIconAtlas(tex)
+		btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+		btn:SetScript("OnEnter", function(self)
+			if not GameTooltip then
+				return
+			end
+			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+			local tip = L["EVALUATION_SKULLS_TOOLTIP"]
+			if tip then
+				GameTooltip:AddLine(tip, 1, 1, 1, true)
+			else
+				GameTooltip:AddLine("Left-click an icon to set toxicity (1–10). Right-click to clear (0).", 1, 1, 1, true)
+			end
+			GameTooltip:Show()
+		end)
+		btn:SetScript("OnLeave", GameTooltip_Hide)
+		btn:SetScript("OnClick", function(self, button)
+			local idx = detailsFrame.currentPlayerIndex
+			if not idx or idx < 1 then
+				return
+			end
+			local pl = BlackList:GetPlayerByIndex(idx)
+			if not pl then
+				return
+			end
+			BlackList:EnsureEntryFields(pl)
+			if button == "RightButton" then
+				pl.evaluationScore = 0
+			else
+				pl.evaluationScore = self:GetID()
+			end
+			BlackList:RefreshStandaloneDetailsEvaluationSkulls(detailsFrame)
+		end)
+	end
+	local skullParen = skullRow:CreateFontString("BlackListStandaloneDetails_SkullParen", "OVERLAY", "GameFontHighlightSmall")
+	skullParen:SetPoint("LEFT", prevBtn, "RIGHT", 6, 0)
+	skullParen:SetJustifyH("LEFT")
+end
+
+--- Insert skull row for frames built before this feature (no muted row between ext and reason).
+function BlackList:InsertEvaluationSkullRowInDetails(detailsFrame)
+	if not detailsFrame or getglobal("BlackListStandaloneDetails_SkullRow") or getglobal("BlackListStandaloneDetails_MutedRow") then
+		return
+	end
+	local extBlock = getglobal("BlackListStandaloneDetails_ExtensionBlock")
+	local reasonHeader = getglobal("BlackListStandaloneDetails_ReasonHeader")
+	if not extBlock or not reasonHeader then
+		return
+	end
+	reasonHeader:ClearAllPoints()
+	local rowW = math.max(160, (detailsFrame.blackListDesiredWidth or 300) - 32)
+	self:BuildStandaloneDetailsSkullRow(detailsFrame, rowW, extBlock)
+	local skullRow = getglobal("BlackListStandaloneDetails_SkullRow")
+	if skullRow then
+		reasonHeader:SetPoint("TOPLEFT", skullRow, "BOTTOMLEFT", 0, -12)
+	end
+end
+
+function BlackList:RefreshStandaloneDetailsEvaluationSkulls(detailsFrame)
+	if not detailsFrame then
+		return
+	end
+	local idx = detailsFrame.currentPlayerIndex
+	local pl = idx and BlackList:GetPlayerByIndex(idx)
+	if not pl then
+		return
+	end
+	local skullRow = getglobal("BlackListStandaloneDetails_SkullRow")
+	local lab = getglobal("BlackListStandaloneDetails_SkullLabel")
+	if skullRow and lab and not getglobal("BlackListStandaloneDetails_SkullParen") then
+		local b10 = getglobal("BlackListStandaloneDetails_SkullBtn10")
+		local parenFs = skullRow:CreateFontString("BlackListStandaloneDetails_SkullParen", "OVERLAY", "GameFontHighlightSmall")
+		if b10 then
+			parenFs:SetPoint("LEFT", b10, "RIGHT", 6, 0)
+		else
+			parenFs:SetPoint("TOPLEFT", lab, "BOTTOMLEFT", 0, -4)
+		end
+		parenFs:SetJustifyH("LEFT")
+		skullRow:SetHeight(22)
+	end
+	self:EnsureEntryFields(pl)
+	local score = math.floor(math.min(10, math.max(0, tonumber(pl.evaluationScore) or 0)))
+	for i = 1, 10 do
+		local btn = getglobal("BlackListStandaloneDetails_SkullBtn" .. i)
+		if btn and btn.skullTex then
+			U.applyToxicityRowIconVisual(btn.skullTex, i <= score)
+		end
+	end
+	local parenFs = getglobal("BlackListStandaloneDetails_SkullParen")
+	local b10 = getglobal("BlackListStandaloneDetails_SkullBtn10")
+	if parenFs and b10 then
+		parenFs:ClearAllPoints()
+		parenFs:SetPoint("LEFT", b10, "RIGHT", 6, 0)
+	end
+	if parenFs and self.GetToxicityScoreParentheticalMarkup then
+		parenFs:SetText(self:GetToxicityScoreParentheticalMarkup(score))
+	end
 end
 
 -- Compat: same content as FormatPlayerDetailsMainBlock (name/realm … faction block).
@@ -271,7 +400,59 @@ function BlackList:CreateStandaloneDetailsLayout(detailsFrame)
 		return row, fs
 	end
 
-	addRow("BlackListStandaloneDetails_Line1", "BlackListStandaloneDetails_Row1", "TOOLTIP_HINT_NAME_REALM", "Name and realm", true)
+	local row1, fsLine1 = addRow("BlackListStandaloneDetails_Line1", "BlackListStandaloneDetails_Row1", "TOOLTIP_HINT_NAME_REALM", "Name and realm", true)
+	fsLine1:ClearAllPoints()
+	fsLine1:SetPoint("TOPLEFT", row1, "TOPLEFT", 0, 0)
+	fsLine1:SetPoint("TOPRIGHT", row1, "TOPRIGHT", -24, 0)
+	local muteTop = CreateFrame("Button", "BlackListStandaloneDetails_MuteBtn", row1)
+	muteTop:SetSize(18, 18)
+	muteTop:SetPoint("TOPRIGHT", row1, "TOPRIGHT", -2, 2)
+	muteTop:SetFrameLevel((row1:GetFrameLevel() or 0) + 4)
+	local muteTex = muteTop:CreateTexture(nil, "ARTWORK")
+	muteTex:SetAllPoints()
+	muteTop.muteTex = muteTex
+	muteTop:RegisterForClicks("LeftButtonUp")
+	local muteTipR, muteTipG, muteTipB = 1, 0.28, 0.28
+	local function refreshMuteEditTooltip(self)
+		if not GameTooltip or not self then
+			return
+		end
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		if GameTooltip.ClearLines then
+			GameTooltip:ClearLines()
+		end
+		local idx = detailsFrame.currentPlayerIndex
+		local pl = idx and BlackList:GetPlayerByIndex(idx)
+		if pl and pl.muted then
+			GameTooltip:AddLine(L["OPT_MUTED_CHAT_UNMUTE"] or "Messages ignored", muteTipR, muteTipG, muteTipB, false)
+		else
+			GameTooltip:AddLine(L["OPT_MUTED_CHAT"] or "Messages allowed", 1, 1, 1, false)
+		end
+		GameTooltip:Show()
+	end
+	muteTop:SetScript("OnEnter", function(self)
+		refreshMuteEditTooltip(self)
+	end)
+	muteTop:SetScript("OnLeave", GameTooltip_Hide)
+	muteTop:SetScript("OnClick", function()
+		local idx = detailsFrame.currentPlayerIndex
+		if not idx or idx < 1 then
+			return
+		end
+		local pl = BlackList:GetPlayerByIndex(idx)
+		if not pl then
+			return
+		end
+		BlackList:EnsureEntryFields(pl)
+		pl.muted = not pl.muted
+		if muteTex and U.applyMuteIconTexture then
+			U.applyMuteIconTexture(muteTex, pl.muted and true or false)
+		end
+		BlackList:UpdateStandaloneUI()
+		if GameTooltip and GameTooltip:IsOwned(muteTop) then
+			refreshMuteEditTooltip(muteTop)
+		end
+	end)
 	addRow("BlackListStandaloneDetails_Line2", "BlackListStandaloneDetails_Row2", "TOOLTIP_HINT_GUILD", "Guild", false)
 	addRow("BlackListStandaloneDetails_Line3", "BlackListStandaloneDetails_Row3", "TOOLTIP_HINT_LEVEL_RACE_CLASS", "Level, race and class", false)
 	addRow("BlackListStandaloneDetails_Line4", "BlackListStandaloneDetails_Row4", "TOOLTIP_HINT_FACTION", "Faction", false)
@@ -282,27 +463,14 @@ function BlackList:CreateStandaloneDetailsLayout(detailsFrame)
 	extBlock:SetJustifyH("LEFT")
 	prev = extBlock
 
-	local mutedRow = CreateFrame("Frame", "BlackListStandaloneDetails_MutedRow", detailsFrame)
-	mutedRow:SetSize(rowW, 26)
-	mutedRow:SetPoint("TOPLEFT", prev, "BOTTOMLEFT", 0, -10)
-	local mutedCb = CreateFrame("CheckButton", "BlackListStandaloneDetails_MutedCb", mutedRow, "UICheckButtonTemplate")
-	mutedCb:SetSize(24, 24)
-	mutedCb:SetPoint("TOPLEFT", mutedRow, "TOPLEFT", 0, 0)
-	local mutedLabel = mutedRow:CreateFontString("BlackListStandaloneDetails_MutedLabel", "OVERLAY", "GameFontNormal")
-	mutedLabel:SetPoint("LEFT", mutedCb, "RIGHT", 4, 0)
-	mutedLabel:SetText(L["OPT_MUTED_CHAT"] or "Mute chat from this player")
-	mutedCb:SetScript("OnClick", function(self)
-		local idx = detailsFrame.currentPlayerIndex
-		if idx and idx > 0 then
-			local pl = BlackList:GetPlayerByIndex(idx)
-			if pl then
-				pl.muted = self:GetChecked() and true or false
-			end
-		end
-	end)
+	self:BuildStandaloneDetailsSkullRow(detailsFrame, rowW, extBlock)
+	local skullRow = getglobal("BlackListStandaloneDetails_SkullRow")
+	if skullRow then
+		prev = skullRow
+	end
 
 	local reasonHeader = detailsFrame:CreateFontString("BlackListStandaloneDetails_ReasonHeader", "OVERLAY", "GameFontNormalLarge")
-	reasonHeader:SetPoint("TOPLEFT", mutedRow, "BOTTOMLEFT", 0, -12)
+	reasonHeader:SetPoint("TOPLEFT", prev, "BOTTOMLEFT", 0, -12)
 	reasonHeader:SetTextColor(1, 1, 0.41)
 	reasonHeader:SetText(L["REASON_HEADER"] or L["REASON"] or "Reason:")
 
@@ -315,9 +483,29 @@ function BlackList:CreateStandaloneDetailsLayout(detailsFrame)
 	local infoDatesBtn = CreateFrame("Button", "BlackListStandaloneDetails_DatesInfoBtn", bottomRow)
 	infoDatesBtn:SetSize(22, 22)
 	infoDatesBtn:SetPoint("LEFT", bottomRow, "LEFT", 0, 0)
-	infoDatesBtn:SetNormalTexture("Interface\\common\\help-i")
-	infoDatesBtn:SetPushedTexture("Interface\\common\\help-i")
-	infoDatesBtn:SetHighlightTexture("Interface\\common\\help-i", "ADD")
+	local datesIconAtlas = "housing-dashboard-timertag-clock-icon"
+	local datesIconSize = 16
+	local function makeDatesBtnLayer(btn, blend)
+		local tex = btn:CreateTexture(nil, "ARTWORK", nil, 1)
+		tex:SetSize(datesIconSize, datesIconSize)
+		tex:SetPoint("CENTER", btn, "CENTER", 0, 0)
+		local ok = pcall(function()
+			tex:SetAtlas(datesIconAtlas)
+		end)
+		if not ok or not tex:GetAtlas() then
+			tex:SetTexture("Interface\\common\\help-i")
+			tex:SetTexCoord(0, 1, 0, 1)
+		end
+		if blend then
+			tex:SetBlendMode(blend)
+		end
+		return tex
+	end
+	infoDatesBtn:SetNormalTexture(makeDatesBtnLayer(infoDatesBtn, nil))
+	local pushedTex = makeDatesBtnLayer(infoDatesBtn, nil)
+	pushedTex:SetAlpha(0.88)
+	infoDatesBtn:SetPushedTexture(pushedTex)
+	infoDatesBtn:SetHighlightTexture(makeDatesBtnLayer(infoDatesBtn, "ADD"))
 	infoDatesBtn:SetScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 		local idx = detailsFrame.currentPlayerIndex
@@ -484,8 +672,11 @@ function BlackList:ShowStandaloneDetails()
 	if detailsFrame and not detailsFrame.blackListDetailsLayoutV2 then
 		self:CreateStandaloneDetailsLayout(detailsFrame)
 	end
-	if detailsFrame and not getglobal("BlackListStandaloneDetails_MutedCb") and getglobal("BlackListStandaloneDetails_BottomRow") then
+	if detailsFrame and not getglobal("BlackListStandaloneDetails_MuteBtn") and not getglobal("BlackListStandaloneDetails_MutedCb") and getglobal("BlackListStandaloneDetails_BottomRow") then
 		self:InsertMutedRowInDetails(detailsFrame)
+	end
+	if detailsFrame then
+		self:InsertEvaluationSkullRowInDetails(detailsFrame)
 	end
 	self:EnsureStandaloneDetailsFactionDecor(detailsFrame)
 
@@ -545,6 +736,11 @@ function BlackList:ShowStandaloneDetails()
 	end
 
 	self:EnsureEntryFields(player)
+	self:RefreshStandaloneDetailsEvaluationSkulls(detailsFrame)
+	local muteTop = getglobal("BlackListStandaloneDetails_MuteBtn")
+	if muteTop and muteTop.muteTex and U.applyMuteIconTexture then
+		U.applyMuteIconTexture(muteTop.muteTex, player.muted and true or false)
+	end
 	local mutedCb = getglobal("BlackListStandaloneDetails_MutedCb")
 	if mutedCb then
 		mutedCb:SetChecked(player.muted and true or false)
@@ -559,6 +755,10 @@ function BlackList:ShowStandaloneDetails()
 	local reasonText = getglobal("BlackListStandaloneDetails_ReasonText")
 	if reasonText then
 		reasonText:SetText(player["reason"] or "")
+	end
+
+	if detailsFrame.blackListTalentBg then
+		detailsFrame.blackListTalentBg:Hide()
 	end
 
 	local wm = detailsFrame.blackListFactionWatermark

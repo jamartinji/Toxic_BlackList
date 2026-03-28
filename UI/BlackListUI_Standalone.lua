@@ -13,6 +13,71 @@ local function cloneEntryTable(src)
 	return out
 end
 
+--- Remove list row at index (undo stack, selection); same rules as toolbar remove.
+local function removeStandaloneListEntryAtIndex(index)
+	if not index or index < 1 then
+		return
+	end
+	local player = BlackList:GetPlayerByIndex(index)
+	if not player then
+		return
+	end
+	if BlackList:IsEntryDeleteLocked(player) then
+		if BlackList.AddMessage then
+			BlackList:AddMessage(BlackList:FormatChatTagPlain(L["REMOVE_BLOCKED_ENTRY_LOCKED"] or "That entry is locked.", "systemWarn"), "styled")
+		end
+		return
+	end
+	local list = BlackList.GetAccountList and BlackList:GetAccountList()
+	if not list or list[index] ~= player then
+		return
+	end
+	U.standaloneUndoStack = U.standaloneUndoStack or {}
+	local entryCopy = cloneEntryTable(player)
+	if entryCopy then
+		U.standaloneUndoStack[#U.standaloneUndoStack + 1] = { entry = entryCopy, index = index }
+		if #U.standaloneUndoStack > 20 then
+			table.remove(U.standaloneUndoStack, 1)
+		end
+	end
+	table.remove(list, index)
+	local newSel = index
+	if newSel > #list then
+		newSel = #list
+	end
+	BlackList:SetSelectedBlackList(newSel > 0 and newSel or 0)
+	BlackList:UpdateStandaloneUI()
+end
+
+--- One skull markup for the selected toxicity submenu row (green atlas like 1–9; 0 dimmed).
+local function toxicitySubmenuChosenRowSkullMarkup(score)
+	score = math.floor(math.min(10, math.max(0, tonumber(score) or 0)))
+	if not CreateAtlasMarkup then
+		return nil
+	end
+	local atlas = "DemonInvasion5"
+	local mk
+	if score == 0 then
+		pcall(function()
+			mk = CreateAtlasMarkup(atlas, 14, 14, 0, 0, 0.72, 0.74, 0.78)
+		end)
+	else
+		pcall(function()
+			mk = CreateAtlasMarkup(atlas, 14, 14, 0, 0)
+		end)
+	end
+	if not mk or mk == "" then
+		pcall(function()
+			if score == 0 then
+				mk = CreateAtlasMarkup("questlog-questtypeicon-dungeon", 14, 14, 0, 0, 0.72, 0.74, 0.78)
+			else
+				mk = CreateAtlasMarkup("questlog-questtypeicon-dungeon", 14, 14, 0, 0)
+			end
+		end)
+	end
+	return mk
+end
+
 -- Inserts all of the UI elements
 function BlackList:InsertUI()
 
@@ -54,6 +119,21 @@ function BlackList:ShowStandaloneListTooltip(anchor, playerIndex)
 			tipRich(ext[i], true)
 		end
 	end
+	local evScore = math.floor(math.min(10, math.max(0, tonumber(player.evaluationScore) or 0)))
+	if evScore > 0 then
+		GameTooltip:AddLine(" ", 1, 1, 1)
+		local toxLab = L["TOOLTIP_BL_TOXICITY_LABEL"] or "Toxicity:"
+		local evMarkup = BlackList.GetEvaluationSkullRowMarkup and BlackList:GetEvaluationSkullRowMarkup(evScore) or nil
+		local parenMk = BlackList.GetToxicityScoreParentheticalMarkup and BlackList:GetToxicityScoreParentheticalMarkup(evScore) or ("(" .. evScore .. ")")
+		pcall(function()
+			local line = toxLab .. "  "
+			if evMarkup and evMarkup ~= "" then
+				line = line .. evMarkup .. "  "
+			end
+			line = line .. parenMk
+			GameTooltip:AddLine(line, 1, 1, 1, false)
+		end)
+	end
 	GameTooltip:AddLine(" ", 1, 1, 1)
 	local rh = L["REASON_HEADER"] or L["REASON"] or "Reason:"
 	GameTooltip:AddLine(rh, 1, 1, 0.41, false)
@@ -68,14 +148,15 @@ function BlackList:ShowStandaloneListTooltip(anchor, playerIndex)
 	for i = 1, #dateLines do
 		tipRich(dateLines[i], false)
 	end
-	U.applyStandaloneTooltipPlayerColors(GameTooltip, self, player)
+	-- Layout first so GetWidth() and NineSlice are valid; then paint border/trims (same as pre–TooltipDataProcessor behavior).
 	GameTooltip:Show()
+	U.applyStandaloneTooltipPlayerColors(GameTooltip, self, player)
 end
 
 local function getStandaloneSortState()
 	local k = BlackList.GetOption and BlackList:GetOption("standaloneSortKey", "added") or "added"
 	local asc = BlackList.GetOption and BlackList:GetOption("standaloneSortAsc", true)
-	if k ~= "added" and k ~= "name" and k ~= "realm" and k ~= "faction" then
+	if k ~= "added" and k ~= "name" and k ~= "realm" and k ~= "faction" and k ~= "toxicity" then
 		k = "added"
 	end
 	return k, (asc == true)
@@ -96,9 +177,10 @@ end
 function BlackList:CreateStandaloneWindow()
 	U.standaloneUndoStack = U.standaloneUndoStack or {}
 	local minIconGap = math.max(2, (U.standaloneIconBarGap or 8) - 4)
+	-- Seven toolbar icons (share removed): 6 gaps between them.
 	local minBarContentW = (U.standaloneIconBarBtn * 7) + (minIconGap * 6)
-	local minWindowW = math.max(268, minBarContentW + 32)
-	local initialWindowW = math.max(300, minWindowW + 4)
+	local minWindowW = math.max(200, minBarContentW + 32)
+	local initialWindowW = math.max(280, minWindowW + 4)
 	local frame = U.createChromeParent("BlackListStandaloneFrame", UIParent, initialWindowW, 392)
 	-- Position like FriendsFrame/CharacterFrame (left side of screen)
 	frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 16, -116)
@@ -157,7 +239,6 @@ function BlackList:CreateStandaloneWindow()
 		setStandaloneSortState(key)
 		BlackList:UpdateStandaloneUI()
 	end
-	local sortDropdown = CreateFrame("Frame", "BlackListStandaloneSortDropDown", frame, "UIDropDownMenuTemplate")
 	local function sortArrowMarkup(asc, transparent)
 		local atlas
 		if transparent then
@@ -175,36 +256,8 @@ function BlackList:CreateStandaloneWindow()
 		local prefix = sortArrowMarkup(asc, curKey ~= key)
 		return string.format("%s %s", prefix, baseText)
 	end
-	local function showSortMenu()
-		local menu = {
-			{ text = L["SORT_BY_TITLE"] or "Sort by...", isTitle = true, notCheckable = true },
-			{ text = sortLabel("added", L["SORT_DATE"] or "Date"), notCheckable = true, func = function() setSortState("added") end },
-			{ text = sortLabel("name", L["SORT_NAME"] or "Name"), notCheckable = true, func = function() setSortState("name") end },
-			{ text = sortLabel("realm", L["SORT_REALM"] or "Realm"), notCheckable = true, func = function() setSortState("realm") end },
-			{ text = sortLabel("faction", L["SORT_FACTION"] or "Faction"), notCheckable = true, func = function() setSortState("faction") end },
-		}
-		if EasyMenu then
-			EasyMenu(menu, sortDropdown, "cursor", 0, 0, "MENU")
-			return
-		end
-		if UIDropDownMenu_Initialize and UIDropDownMenu_CreateInfo and UIDropDownMenu_AddButton and ToggleDropDownMenu then
-			sortDropdown.displayMode = "MENU"
-			sortDropdown.initialize = function(self, level)
-				level = level or 1
-				for i = 1, #menu do
-					local src = menu[i]
-					local info = UIDropDownMenu_CreateInfo()
-					info.text = src.text
-					info.isTitle = src.isTitle
-					info.notCheckable = src.notCheckable
-					info.func = src.func
-					UIDropDownMenu_AddButton(info, level)
-				end
-			end
-			UIDropDownMenu_Initialize(sortDropdown, sortDropdown.initialize, "MENU")
-			ToggleDropDownMenu(1, nil, sortDropdown, "cursor", 0, 0)
-		end
-	end
+	local listRowMenuHolder = CreateFrame("Frame", "BlackListStandaloneListRowMenuHolder", frame, "UIDropDownMenuTemplate")
+	local showListRowContextMenu
 	local function getSearchTextNorm()
 		return strtrim(tostring(currentSearchFilter or "")):lower()
 	end
@@ -225,6 +278,11 @@ function BlackList:CreateStandaloneWindow()
 			tostring(player.guild or ""),
 			tostring(player.reason or ""),
 		}
+		local nm = strtrim(tostring(player.name or ""))
+		local rm = strtrim(tostring(player.realm or ""))
+		if nm ~= "" and rm ~= "" then
+			fields[#fields + 1] = nm .. "-" .. rm
+		end
 		for i = 1, #fields do
 			if string.lower(fields[i]):find(q, 1, true) then
 				return true
@@ -341,15 +399,194 @@ function BlackList:CreateStandaloneWindow()
 		BlackList:UpdateStandaloneUI()
 	end
 
+	local function setStandaloneListFilterQuery(q)
+		q = strtrim(tostring(q or ""))
+		if q == "" then
+			return
+		end
+		if not searchVisible then
+			searchVisible = true
+		end
+		if searchBoxContainer then
+			searchBoxContainer:Show()
+		end
+		listContainer:ClearAllPoints()
+		listContainer:SetPoint("TOPLEFT", searchBoxContainer, "BOTTOMLEFT", 0, -6)
+		listContainer:SetPoint("BOTTOMRIGHT", listShell, "BOTTOMRIGHT", -U.listShellPad, U.listShellPad)
+		if searchEditBox then
+			searchEditBox:SetText(q)
+			if searchPlaceholder then
+				searchPlaceholder:SetShown(q == "")
+			end
+			if SearchBoxTemplate_OnTextChanged then
+				pcall(SearchBoxTemplate_OnTextChanged, searchEditBox)
+			end
+		end
+		currentSearchFilter = q
+		BlackList:UpdateStandaloneUI()
+	end
+	frame.blackListStandaloneSetListFilter = setStandaloneListFilterQuery
+
+	showListRowContextMenu = function(anchorButton)
+		local idx = anchorButton and anchorButton:GetID()
+		local p = idx and idx > 0 and BlackList:GetPlayerByIndex(idx)
+		local sortBlock = {
+			{ text = L["SORT_BY_TITLE"] or "Sort by...", isTitle = true, notCheckable = true },
+			{ text = sortLabel("added", L["SORT_DATE"] or "Date"), notCheckable = true, isNotRadio = true, func = function()
+				setSortState("added")
+			end },
+			{ text = sortLabel("name", L["SORT_NAME"] or "Name"), notCheckable = true, isNotRadio = true, func = function()
+				setSortState("name")
+			end },
+			{ text = sortLabel("realm", L["SORT_REALM"] or "Realm"), notCheckable = true, isNotRadio = true, func = function()
+				setSortState("realm")
+			end },
+			{ text = sortLabel("faction", L["SORT_FACTION"] or "Faction"), notCheckable = true, isNotRadio = true, func = function()
+				setSortState("faction")
+			end },
+			{ text = sortLabel("toxicity", L["SORT_TOXICITY"] or "Toxicity"), notCheckable = true, isNotRadio = true, func = function()
+				setSortState("toxicity")
+			end },
+		}
+		local rowBlock = {}
+		if p then
+			rowBlock[#rowBlock + 1] = {
+				text = L["LIST_MENU_EDIT"] or "Edit entry",
+				notCheckable = true,
+				func = function()
+					local detailsFrame = getglobal("BlackListStandaloneDetailsFrame")
+					if detailsFrame and detailsFrame.SaveReason then
+						detailsFrame.SaveReason()
+					end
+					BlackList:SetSelectedBlackList(idx)
+					BlackList:UpdateStandaloneUI()
+					BlackList:ShowStandaloneDetails()
+				end,
+			}
+			rowBlock[#rowBlock + 1] = {
+				text = L["LIST_MENU_REMOVE"] or L["REMOVE_PLAYER"] or "Remove from list",
+				notCheckable = true,
+				disabled = BlackList:IsEntryDeleteLocked(p),
+				func = function()
+					removeStandaloneListEntryAtIndex(idx)
+				end,
+			}
+			BlackList:EnsureEntryFields(p)
+			local curTox = math.floor(math.min(10, math.max(0, tonumber(p.evaluationScore) or 0)))
+			local toxList = {}
+			for s = 0, 10 do
+				local score = s
+				local rowText = tostring(s)
+				if score == curTox then
+					local sk = toxicitySubmenuChosenRowSkullMarkup(score)
+					if sk and sk ~= "" then
+						rowText = rowText .. "  " .. sk
+					end
+				end
+				toxList[#toxList + 1] = {
+					text = rowText,
+					notCheckable = true,
+					func = function()
+						BlackList:EnsureEntryFields(p)
+						p.evaluationScore = score
+						BlackList:UpdateStandaloneUI()
+						local df = getglobal("BlackListStandaloneDetailsFrame")
+						if df and df:IsShown() and df.currentPlayerIndex == idx and BlackList.RefreshStandaloneDetailsEvaluationSkulls then
+							BlackList:RefreshStandaloneDetailsEvaluationSkulls(df)
+						end
+						if CloseDropDownMenus then
+							CloseDropDownMenus()
+						end
+					end,
+				}
+			end
+			rowBlock[#rowBlock + 1] = {
+				text = L["LIST_MENU_TOXICITY"] or "Toxicity",
+				notCheckable = true,
+				hasArrow = true,
+				menuList = toxList,
+			}
+			rowBlock[#rowBlock + 1] = { text = "", isSeparator = true, notCheckable = true }
+		end
+		local menuDD = {}
+		for i = 1, #rowBlock do
+			menuDD[#menuDD + 1] = rowBlock[i]
+		end
+		for i = 1, #sortBlock do
+			menuDD[#menuDD + 1] = sortBlock[i]
+		end
+		local function flattenForEasy(src)
+			local out = {}
+			for _, e in ipairs(src) do
+				if e.menuList then
+					out[#out + 1] = {
+						text = "— " .. tostring(e.text) .. " —",
+						isTitle = true,
+						notCheckable = true,
+					}
+					for _, sub in ipairs(e.menuList) do
+						out[#out + 1] = sub
+					end
+				else
+					out[#out + 1] = e
+				end
+			end
+			return out
+		end
+		local menuEasy = {}
+		local flatRow = flattenForEasy(rowBlock)
+		for i = 1, #flatRow do
+			menuEasy[#menuEasy + 1] = flatRow[i]
+		end
+		for i = 1, #sortBlock do
+			menuEasy[#menuEasy + 1] = sortBlock[i]
+		end
+		if EasyMenu then
+			EasyMenu(menuEasy, listRowMenuHolder, "cursor", 0, 0, "MENU")
+			return
+		end
+		if UIDropDownMenu_Initialize and UIDropDownMenu_CreateInfo and UIDropDownMenu_AddButton and ToggleDropDownMenu then
+			listRowMenuHolder.displayMode = "MENU"
+			listRowMenuHolder.blListRowMenuTop = menuDD
+			listRowMenuHolder.initialize = function(self, level, menuList)
+				local list = menuList or self.blListRowMenuTop
+				if not list then
+					return
+				end
+				for _, src in ipairs(list) do
+					local info = UIDropDownMenu_CreateInfo()
+					info.text = src.text
+					info.isTitle = src.isTitle
+					info.isSeparator = src.isSeparator
+					info.notCheckable = src.notCheckable ~= false
+					info.disabled = src.disabled
+					info.func = src.func
+					info.hasArrow = src.hasArrow
+					info.menuList = src.menuList
+					if src.checked ~= nil then
+						info.checked = src.checked
+					end
+					if src.isNotRadio ~= nil then
+						info.isNotRadio = src.isNotRadio
+					end
+					UIDropDownMenu_AddButton(info, level or 1)
+				end
+			end
+			UIDropDownMenu_Initialize(listRowMenuHolder, listRowMenuHolder.initialize, "MENU")
+			ToggleDropDownMenu(1, nil, listRowMenuHolder, "cursor", 0, 0)
+		end
+	end
+
 	local legendBar = CreateFrame("Frame", "BlackListStandaloneLegendBar", frame)
 	legendBar:SetFrameLevel(baseLvl + 20)
 	legendBar:SetHeight(U.legendRowH)
 	legendBar:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 10, U.legendBottom)
 	legendBar:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -10, U.legendBottom)
 
+	-- Help "?" position: first number = inset from legend left edge (more negative = move icon left).
 	local helpBtn = CreateFrame("Button", "BlackListStandalone_HelpButton", legendBar)
 	helpBtn:SetSize(22, 22)
-	helpBtn:SetPoint("LEFT", legendBar, "LEFT", 2, 0)
+	helpBtn:SetPoint("LEFT", legendBar, "LEFT", -2, 0)
 	helpBtn:SetScript("OnEnter", function(self)
 		U.showStandaloneHelpTooltip(self)
 	end)
@@ -361,8 +598,9 @@ function BlackList:CreateStandaloneWindow()
 	helpBtn:SetHighlightTexture(helpInfoPath, "ADD")
 	helpBtn:SetFrameLevel((legendBar:GetFrameLevel() or 0) + 2)
 
+	-- Gap after help icon: first number = horizontal space before hint text (smaller = more room for list above).
 	local hint = legendBar:CreateFontString("BlackListStandalone_Hint", "OVERLAY", "GameFontNormalSmall")
-	hint:SetPoint("TOPLEFT", helpBtn, "TOPRIGHT", 10, -2)
+	hint:SetPoint("TOPLEFT", helpBtn, "TOPRIGHT", 6, 0)
 	hint:SetPoint("BOTTOMRIGHT", legendBar, "BOTTOMRIGHT", -6, 2)
 	hint:SetJustifyH("LEFT")
 	hint:SetJustifyV("TOP")
@@ -399,13 +637,21 @@ function BlackList:CreateStandaloneWindow()
 		end
 		if not button.FactionIcon then
 			button.FactionIcon = button:CreateTexture(nil, "ARTWORK")
-			-- Atlas source is 22x28; keep ratio when constraining to 22 height => ~17x22.
 			button.FactionIcon:SetSize(14, 18)
-			button.FactionIcon:SetPoint("LEFT", button, "LEFT", 10, 0)
+		end
+		-- Fixed-width column so the "needs info" icon matches Alliance/Horde width (no extra push on the name).
+		if not button.FactionSlot then
+			button.FactionSlot = CreateFrame("Frame", nil, button)
+			button.FactionSlot:SetSize(18, 18)
+		end
+		if not button.ToxScore then
+			button.ToxScore = button:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+			button.ToxScore:SetSize(18, 14)
+			button.ToxScore:SetPoint("LEFT", button, "LEFT", 4, 0)
+			button.ToxScore:SetJustifyH("RIGHT")
 		end
 		button.Text:ClearAllPoints()
-		button.Text:SetPoint("TOPLEFT", button, "TOPLEFT", 33, 0)
-		button.Text:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -10, 0)
+		button.Text:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -46, 0)
 		button.Text:SetJustifyH("LEFT")
 		button.Text:SetJustifyV("MIDDLE")
 		local index = elementData.playerIndex or elementData.index
@@ -413,8 +659,22 @@ function BlackList:CreateStandaloneWindow()
 		button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 		local player = BlackList:GetPlayerByIndex(index)
 		if player then
+			BlackList:EnsureEntryFields(player)
+			local toxN = math.floor(math.min(10, math.max(0, tonumber(player.evaluationScore) or 0)))
+			if BlackList.GetToxicityScoreNumberMarkup then
+				button.ToxScore:SetText(BlackList:GetToxicityScoreNumberMarkup(toxN))
+			else
+				button.ToxScore:SetText(tostring(toxN))
+			end
+			button.ToxScore:Show()
 			button.Text:SetText(BlackList:FormatStandaloneListLine(player))
 			local fid = BlackList.GetFactionIdForPlayer and BlackList:GetFactionIdForPlayer(player) or nil
+			local factionShown = false
+			button.FactionSlot:ClearAllPoints()
+			button.FactionSlot:SetPoint("LEFT", button.ToxScore, "RIGHT", 4, 0)
+			if button.FactionIcon:GetParent() ~= button.FactionSlot then
+				button.FactionIcon:SetParent(button.FactionSlot)
+			end
 			if fid == 1 or fid == 2 then
 				local atlas = (fid == 1) and "communities-create-button-wow-alliance" or "communities-create-button-wow-horde"
 				local okAtlas = pcall(function()
@@ -422,11 +682,12 @@ function BlackList:CreateStandaloneWindow()
 				end)
 				if okAtlas and button.FactionIcon:GetAtlas() then
 					button.FactionIcon:ClearAllPoints()
-					button.FactionIcon:SetPoint("LEFT", button, "LEFT", 10, 0)
+					button.FactionIcon:SetPoint("CENTER", button.FactionSlot, "CENTER", 0, 0)
 					button.FactionIcon:SetSize(14, 18)
 					button.FactionIcon:SetTexCoord(0, 1, 0, 1)
 					button.FactionIcon:SetVertexColor(1, 1, 1, 1)
 					button.FactionIcon:Show()
+					factionShown = true
 				else
 					button.FactionIcon:Hide()
 				end
@@ -436,21 +697,185 @@ function BlackList:CreateStandaloneWindow()
 				end)
 				if okAtlas and button.FactionIcon:GetAtlas() then
 					button.FactionIcon:ClearAllPoints()
-					-- 18×18 vs 14×18 faction badges; nudge left to align visual center with row icons.
-					button.FactionIcon:SetPoint("LEFT", button, "LEFT", 7, 0)
-					button.FactionIcon:SetSize(18, 18)
+					button.FactionIcon:SetPoint("CENTER", button.FactionSlot, "CENTER", 0, 0)
+					-- Same footprint as faction buttons so the player name column does not shift.
+					button.FactionIcon:SetSize(14, 18)
 					button.FactionIcon:SetTexCoord(0, 1, 0, 1)
 					button.FactionIcon:SetVertexColor(1, 1, 1, 1)
 					button.FactionIcon:Show()
+					factionShown = true
 				else
 					button.FactionIcon:Hide()
 				end
 			else
 				button.FactionIcon:Hide()
 			end
+			if factionShown then
+				button.FactionSlot:SetSize(18, 18)
+				button.FactionSlot:Show()
+			else
+				button.FactionSlot:Hide()
+			end
+			button.Text:ClearAllPoints()
+			button.Text:SetPoint("TOPLEFT", factionShown and button.FactionSlot or button.ToxScore, "TOPRIGHT", 6, 0)
+			button.Text:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -46, 0)
 		else
 			button.Text:SetText("")
 			button.FactionIcon:Hide()
+			if button.FactionSlot then
+				button.FactionSlot:Hide()
+			end
+			if button.ToxScore then
+				button.ToxScore:Hide()
+			end
+		end
+		if not button.RowLockBtn then
+			local lb = CreateFrame("Button", nil, button)
+			lb:SetSize(16, 16)
+			lb:SetPoint("RIGHT", button, "RIGHT", -4, 0)
+			lb:SetFrameLevel((button:GetFrameLevel() or 0) + 10)
+			local lt = lb:CreateTexture(nil, "ARTWORK")
+			lt:SetAllPoints()
+			lb.lockTex = lt
+			pcall(function()
+				lt:SetAtlas("collections-icon-lock")
+			end)
+			if not lt:GetAtlas() then
+				lt:SetTexture("Interface\\PetBattles\\PetBattle-LockIcon")
+				lt:SetTexCoord(0, 1, 0, 1)
+			end
+			lb:RegisterForClicks("LeftButtonUp")
+			local lockTipR, lockTipG, lockTipB = 1, 0.28, 0.28
+			local function refreshLockRowTooltip(btn)
+				if not GameTooltip or not btn then
+					return
+				end
+				GameTooltip:SetOwner(btn, "ANCHOR_LEFT")
+				if GameTooltip.ClearLines then
+					GameTooltip:ClearLines()
+				end
+				local idx = btn:GetParent():GetID()
+				local p = idx and BlackList:GetPlayerByIndex(idx)
+				if p and BlackList:IsEntryDeleteLocked(p) then
+					GameTooltip:AddLine(L["ROW_LOCK_TOOLTIP_LOCKED"] or "Locked", lockTipR, lockTipG, lockTipB, false)
+				else
+					GameTooltip:AddLine(L["ROW_LOCK_TOOLTIP_UNLOCKED"] or "Unlocked", 1, 1, 1, false)
+				end
+				GameTooltip:Show()
+			end
+			lb:SetScript("OnEnter", function(self)
+				refreshLockRowTooltip(self)
+			end)
+			lb:SetScript("OnLeave", GameTooltip_Hide)
+			lb:SetScript("OnClick", function(self)
+				local idx = self:GetParent():GetID()
+				if not idx or idx < 1 then
+					return
+				end
+				local p = BlackList:GetPlayerByIndex(idx)
+				if not p then
+					return
+				end
+				BlackList:EnsureEntryFields(p)
+				p.entryLocked = not p.entryLocked
+				BlackList:UpdateStandaloneUI()
+				if GameTooltip and GameTooltip:IsOwned(self) then
+					refreshLockRowTooltip(self)
+				end
+			end)
+			button.RowLockBtn = lb
+		end
+		if not button.RowMuteBtn then
+			local mb = CreateFrame("Button", nil, button)
+			mb:SetSize(16, 16)
+			mb:SetFrameLevel((button:GetFrameLevel() or 0) + 10)
+			local mt = mb:CreateTexture(nil, "ARTWORK")
+			mt:SetAllPoints()
+			mb.muteTex = mt
+			mb:RegisterForClicks("LeftButtonUp")
+			local muteTipR, muteTipG, muteTipB = 1, 0.28, 0.28
+			local function refreshMuteRowTooltip(btn)
+				if not GameTooltip or not btn then
+					return
+				end
+				GameTooltip:SetOwner(btn, "ANCHOR_LEFT")
+				if GameTooltip.ClearLines then
+					GameTooltip:ClearLines()
+				end
+				local idx = btn:GetParent() and btn:GetParent():GetID()
+				local p = idx and BlackList:GetPlayerByIndex(idx)
+				if p and p.muted then
+					GameTooltip:AddLine(L["OPT_MUTED_CHAT_UNMUTE"] or "Messages ignored", muteTipR, muteTipG, muteTipB, false)
+				else
+					GameTooltip:AddLine(L["OPT_MUTED_CHAT"] or "Messages allowed", 1, 1, 1, false)
+				end
+				GameTooltip:Show()
+			end
+			mb:SetScript("OnEnter", function(self)
+				refreshMuteRowTooltip(self)
+			end)
+			mb:SetScript("OnLeave", GameTooltip_Hide)
+			mb:SetScript("OnClick", function(self)
+				local idx = self:GetParent():GetID()
+				if not idx or idx < 1 then
+					return
+				end
+				local p = BlackList:GetPlayerByIndex(idx)
+				if not p then
+					return
+				end
+				BlackList:EnsureEntryFields(p)
+				p.muted = not p.muted
+				if self.muteTex and U.applyMuteIconTexture then
+					U.applyMuteIconTexture(self.muteTex, p.muted and true or false)
+				end
+				BlackList:UpdateStandaloneUI()
+				if GameTooltip and GameTooltip:IsOwned(self) then
+					refreshMuteRowTooltip(self)
+				end
+			end)
+			button.RowMuteBtn = mb
+		end
+		if button.RowMuteBtn and button.RowLockBtn then
+			button.RowMuteBtn:ClearAllPoints()
+			button.RowMuteBtn:SetPoint("RIGHT", button.RowLockBtn, "LEFT", -4, 0)
+		end
+		do
+			local lb = button.RowLockBtn
+			local pRow = BlackList:GetPlayerByIndex(index)
+			if pRow and lb and lb.lockTex then
+				BlackList:EnsureEntryFields(pRow)
+				local lt = lb.lockTex
+				if BlackList:IsEntryDeleteLocked(pRow) then
+					pcall(function()
+						if lt.SetDesaturated then
+							lt:SetDesaturated(false)
+						end
+					end)
+					lt:SetVertexColor(1, 0.28, 0.28, 1)
+				else
+					pcall(function()
+						if lt.SetDesaturated then
+							lt:SetDesaturated(true)
+						end
+					end)
+					lt:SetVertexColor(0.48, 0.51, 0.55, 1)
+				end
+				lb:Show()
+			elseif lb then
+				lb:Hide()
+			end
+		end
+		do
+			local mb = button.RowMuteBtn
+			local pRow = BlackList:GetPlayerByIndex(index)
+			if pRow and mb and mb.muteTex and U.applyMuteIconTexture then
+				BlackList:EnsureEntryFields(pRow)
+				U.applyMuteIconTexture(mb.muteTex, pRow.muted and true or false)
+				mb:Show()
+			elseif mb then
+				mb:Hide()
+			end
 		end
 		local sel = BlackList:GetSelectedBlackList()
 		if button.SelectedTexture then
@@ -469,7 +894,7 @@ function BlackList:CreateStandaloneWindow()
 		end)
 		button:SetScript("OnMouseUp", function(self, mouseButton)
 			if mouseButton == "RightButton" then
-				showSortMenu()
+				showListRowContextMenu(self)
 			end
 		end)
 		button:SetScript("OnClick", function(self, mouseButton)
@@ -579,31 +1004,18 @@ function BlackList:CreateStandaloneWindow()
 	removeBtn:SetPoint("LEFT", editBtn, "RIGHT", iconGap, 0)
 	removeBtn:SetScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-		GameTooltip:AddLine(L["REMOVE_PLAYER"] or "", 1, 1, 1, true)
+		local index = BlackList:GetSelectedBlackList()
+		local p = index and index > 0 and BlackList:GetPlayerByIndex(index)
+		if p and BlackList:IsEntryDeleteLocked(p) then
+			GameTooltip:AddLine(L["REMOVE_BLOCKED_ENTRY_LOCKED"] or "That entry is locked. Unlock it in the list before removing.", 1, 0.45, 0.35, true)
+		else
+			GameTooltip:AddLine(L["REMOVE_PLAYER"] or "", 1, 1, 1, true)
+		end
 		GameTooltip:Show()
 	end)
 	removeBtn:SetScript("OnLeave", GameTooltip_Hide)
 	removeBtn:SetScript("OnClick", function()
-		local index = BlackList:GetSelectedBlackList()
-		if index and index > 0 then
-			local player = BlackList:GetPlayerByIndex(index)
-			local list = BlackList.GetAccountList and BlackList:GetAccountList()
-			if player and list and list[index] == player then
-				local entryCopy = cloneEntryTable(player)
-				if entryCopy then
-					U.standaloneUndoStack[#U.standaloneUndoStack + 1] = { entry = entryCopy, index = index }
-					if #U.standaloneUndoStack > 20 then
-						table.remove(U.standaloneUndoStack, 1)
-					end
-				end
-				table.remove(list, index)
-				if index > #list then
-					index = #list
-				end
-				BlackList:SetSelectedBlackList(index > 0 and index or 0)
-				BlackList:UpdateStandaloneUI()
-			end
-		end
+		removeStandaloneListEntryAtIndex(BlackList:GetSelectedBlackList())
 	end)
 
 	local undoBtn = CreateFrame("Button", "BlackListStandalone_UndoButton", iconBar)
@@ -728,15 +1140,9 @@ function BlackList:UpdateStandaloneUI()
 			self:SetSelectedBlackList(1)
 			selectedBlackList = 1
 		end
-		-- Enable remove / edit buttons
-		local removeBtn = getglobal("BlackListStandalone_RemoveButton")
-		if removeBtn then removeBtn:Enable() end
 		local editBtn = getglobal("BlackListStandalone_EditButton")
 		if editBtn then editBtn:Enable() end
 	else
-		-- Disable remove / edit buttons
-		local removeBtn = getglobal("BlackListStandalone_RemoveButton")
-		if removeBtn then removeBtn:Disable() end
 		local editBtn = getglobal("BlackListStandalone_EditButton")
 		if editBtn then editBtn:Disable() end
 	end
@@ -744,6 +1150,19 @@ function BlackList:UpdateStandaloneUI()
 	local mainFrame = getglobal("BlackListStandaloneFrame")
 	local scrollBox = mainFrame and mainFrame.blackListStandaloneScrollBox
 	if not scrollBox or not CreateDataProvider then
+		local removeBtnEarly = getglobal("BlackListStandalone_RemoveButton")
+		if removeBtnEarly then
+			if numBlackLists > 0 then
+				local pSel = selectedBlackList and selectedBlackList > 0 and self:GetPlayerByIndex(selectedBlackList)
+				if pSel and self:IsEntryDeleteLocked(pSel) then
+					removeBtnEarly:Disable()
+				else
+					removeBtnEarly:Enable()
+				end
+			else
+				removeBtnEarly:Disable()
+			end
+		end
 		return
 	end
 	local matchesSearch = mainFrame and mainFrame.blackListStandaloneMatchesSearch
@@ -777,6 +1196,11 @@ function BlackList:UpdateStandaloneUI()
 		elseif sortKey == "faction" then
 			va = self.GetFactionIdForPlayer and (self:GetFactionIdForPlayer(a) or 3) or 3
 			vb = self.GetFactionIdForPlayer and (self:GetFactionIdForPlayer(b) or 3) or 3
+		elseif sortKey == "toxicity" then
+			self:EnsureEntryFields(a)
+			self:EnsureEntryFields(b)
+			va = math.floor(math.min(10, math.max(0, tonumber(a.evaluationScore) or 0)))
+			vb = math.floor(math.min(10, math.max(0, tonumber(b.evaluationScore) or 0)))
 		else
 			va = tonumber(a.added) or 0
 			vb = tonumber(b.added) or 0
@@ -827,7 +1251,16 @@ function BlackList:UpdateStandaloneUI()
 	end
 	local removeBtn = getglobal("BlackListStandalone_RemoveButton")
 	if removeBtn then
-		if visibleCount > 0 then removeBtn:Enable() else removeBtn:Disable() end
+		if visibleCount > 0 then
+			local pSel = selectedBlackList and selectedBlackList > 0 and self:GetPlayerByIndex(selectedBlackList)
+			if pSel and self:IsEntryDeleteLocked(pSel) then
+				removeBtn:Disable()
+			else
+				removeBtn:Enable()
+			end
+		else
+			removeBtn:Disable()
+		end
 	end
 	local undoBtn = getglobal("BlackListStandalone_UndoButton")
 	if undoBtn then
@@ -879,5 +1312,19 @@ function BlackList:UpdateStandaloneUI()
 				end)
 			end
 		end)
+	end
+
+	local detailsFrame = getglobal("BlackListStandaloneDetailsFrame")
+	if detailsFrame and detailsFrame:IsShown() then
+		self:RefreshStandaloneDetailsEvaluationSkulls(detailsFrame)
+	end
+	local muteTop = getglobal("BlackListStandaloneDetails_MuteBtn")
+	if detailsFrame and detailsFrame:IsShown() and muteTop and muteTop.muteTex and U.applyMuteIconTexture then
+		local idx = detailsFrame.currentPlayerIndex
+		local p = idx and self:GetPlayerByIndex(idx)
+		if p then
+			self:EnsureEntryFields(p)
+			U.applyMuteIconTexture(muteTop.muteTex, p.muted and true or false)
+		end
 	end
 end

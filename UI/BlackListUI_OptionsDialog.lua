@@ -2,6 +2,45 @@ local _, Addon = ...
 local L = Addon.L
 local U = Addon.UI
 
+local ADD_DIALOG_CLASS_FILES = {
+	"WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "DEATHKNIGHT", "SHAMAN",
+	"MAGE", "WARLOCK", "MONK", "DRUID", "DEMONHUNTER", "EVOKER",
+}
+
+local function localizedClassLabel(classFile)
+	local t = _G.LOCALIZED_CLASS_NAMES_MALE
+	if t and classFile and t[classFile] then
+		return t[classFile]
+	end
+	return tostring(classFile or "")
+end
+
+local function classAtlasForFileToken(classFile)
+	if not classFile or classFile == "" then
+		return nil
+	end
+	local atlas = "groupfinder-icon-class-" .. string.lower(classFile)
+	local ok, has = pcall(function()
+		return C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(atlas)
+	end)
+	if ok and has then
+		return atlas
+	end
+	return nil
+end
+
+local function refreshAddDialogToxicIcons(f)
+	if not f or not f.blToxicSkullTex then
+		return
+	end
+	local sc = tonumber(f.blToxicityScore) or 0
+	sc = math.floor(math.min(10, math.max(0, sc)))
+	U.applyToxicitySkullSingleState(f.blToxicSkullTex, sc)
+	if f.blToxicValueText then
+		f.blToxicValueText:SetText(tostring(sc))
+	end
+end
+
 -- Options frame state
 local BlackListOptionsFrame_New = nil
 
@@ -184,6 +223,7 @@ local function CreateNewOptionsFrame()
 	local warnPartyJoin, warnPartyJoinText = U.createBlackListOption(panelGeneral, "BL_WarnPartyJoin", L["OPT_WARN_PARTY_JOIN"], pad, function(checked)
 		BlackList:ToggleOption("warnPartyJoin", checked)
 	end)
+	pad = pad - U.optionsRowGap
 
 	local generalBodyH = math.abs(pad) + 28
 	local contentBodyH = math.max(generalBodyH, soundBodyH, floatBodyH)
@@ -273,7 +313,7 @@ end
 
 --- Add by name: same NineSlice chrome as the main window (title bar + close).
 function BlackList:ShowAddPlayerDialog()
-	local dlgW, dlgH = 340, 318
+	local dlgW, dlgH = 360, 400
 	local f = _G["BlackListAddPlayerDialog"]
 	if not f then
 		f = U.createChromeParent("BlackListAddPlayerDialog", UIParent, dlgW, dlgH)
@@ -286,15 +326,8 @@ function BlackList:ShowAddPlayerDialog()
 
 		local innerW = dlgW - 48
 
-		local intro = f:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-		intro:SetPoint("TOPLEFT", f, "TOPLEFT", 24, -48)
-		intro:SetPoint("TOPRIGHT", f, "TOPRIGHT", -24, -56)
-		intro:SetJustifyH("LEFT")
-		intro:SetSpacing(2)
-		f.blIntro = intro
-
 		local lblName = f:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-		lblName:SetPoint("TOPLEFT", intro, "BOTTOMLEFT", 0, -12)
+		lblName:SetPoint("TOPLEFT", f, "TOPLEFT", 24, -52)
 		lblName:SetJustifyH("LEFT")
 		f.blLblName = lblName
 
@@ -305,8 +338,124 @@ function BlackList:ShowAddPlayerDialog()
 		ebName:SetMaxLetters(64)
 		f.blNameEdit = ebName
 
+		local lblRealm = f:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+		lblRealm:SetPoint("TOPLEFT", ebName, "BOTTOMLEFT", -4, -10)
+		lblRealm:SetJustifyH("LEFT")
+		f.blLblRealm = lblRealm
+
+		local ebRealm = CreateFrame("EditBox", "BlackListAddPlayerDialog_Realm", f, "InputBoxTemplate")
+		ebRealm:SetSize(innerW, 22)
+		ebRealm:SetPoint("TOPLEFT", lblRealm, "BOTTOMLEFT", 4, -6)
+		ebRealm:SetAutoFocus(false)
+		ebRealm:SetMaxLetters(64)
+		f.blRealmEdit = ebRealm
+
+		local lblClass = f:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+		lblClass:SetPoint("TOPLEFT", ebRealm, "BOTTOMLEFT", -4, -10)
+		lblClass:SetJustifyH("LEFT")
+		f.blLblClass = lblClass
+
+		local ddClass = CreateFrame("Frame", "BlackListAddPlayerDialog_ClassDD", f, "UIDropDownMenuTemplate")
+		ddClass:SetPoint("TOPLEFT", lblClass, "BOTTOMLEFT", -16, -4)
+		if ddClass.SetWidth then
+			ddClass:SetWidth(math.max(200, innerW + 24))
+		end
+		f.blClassDD = ddClass
+		ddClass.initialize = function()
+			local unk = L["UNKNOWN_CLASS"] or "Unknown"
+			local z = UIDropDownMenu_CreateInfo()
+			z.text = unk
+			z.value = ""
+			z.func = function()
+				f.blSelectedClassToken = ""
+				UIDropDownMenu_SetSelectedValue(ddClass, "")
+				if UIDropDownMenu_SetText then
+					UIDropDownMenu_SetText(ddClass, unk)
+				end
+			end
+			UIDropDownMenu_AddButton(z)
+			for ix = 1, #ADD_DIALOG_CLASS_FILES do
+				local file = ADD_DIALOG_CLASS_FILES[ix]
+				local info = UIDropDownMenu_CreateInfo()
+				info.text = localizedClassLabel(file)
+				info.value = file
+				local at = classAtlasForFileToken(file)
+				if at then
+					info.icon = at
+				end
+				info.func = function()
+					f.blSelectedClassToken = file
+					UIDropDownMenu_SetSelectedValue(ddClass, file)
+					if UIDropDownMenu_SetText then
+						UIDropDownMenu_SetText(ddClass, localizedClassLabel(file))
+					end
+				end
+				UIDropDownMenu_AddButton(info)
+			end
+		end
+		if UIDropDownMenu_Initialize then
+			UIDropDownMenu_Initialize(ddClass, ddClass.initialize)
+		end
+
+		local lblToxic = f:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+		lblToxic:SetPoint("TOPLEFT", ddClass, "BOTTOMLEFT", 16, -10)
+		lblToxic:SetJustifyH("LEFT")
+		f.blLblToxic = lblToxic
+
+		local toxicRow = CreateFrame("Frame", nil, f)
+		toxicRow:SetSize(innerW, 28)
+		toxicRow:SetPoint("TOPLEFT", lblToxic, "BOTTOMLEFT", 0, -4)
+		f.blToxicRow = toxicRow
+
+		local toxVal = toxicRow:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+		toxVal:SetPoint("LEFT", toxicRow, "LEFT", 0, 0)
+		toxVal:SetJustifyH("LEFT")
+		f.blToxicValueText = toxVal
+
+		local szTox = 22
+		local tbtn = CreateFrame("Button", nil, toxicRow)
+		tbtn:SetSize(szTox, szTox)
+		tbtn:SetPoint("LEFT", toxVal, "RIGHT", 10, 0)
+		tbtn:SetFrameLevel((toxicRow:GetFrameLevel() or 0) + 3)
+		local ttx = tbtn:CreateTexture(nil, "ARTWORK")
+		ttx:SetAllPoints()
+		f.blToxicSkullTex = ttx
+		U.applyToxicityRowIconAtlas(ttx)
+		tbtn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+		tbtn:SetScript("OnEnter", function(self)
+			if not GameTooltip then
+				return
+			end
+			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+			local tip = L["ADD_DIALOG_TOXICITY_TOOLTIP"]
+			if tip then
+				GameTooltip:AddLine(tip, 1, 1, 1, true)
+			else
+				GameTooltip:AddLine("Left-click: next (0–10, wraps). Right-click: previous.", 1, 1, 1, true)
+			end
+			GameTooltip:Show()
+		end)
+		tbtn:SetScript("OnLeave", GameTooltip_Hide)
+		tbtn:SetScript("OnClick", function(_, button)
+			local cur = math.floor(math.min(10, math.max(0, tonumber(f.blToxicityScore) or 0)))
+			if button == "RightButton" then
+				cur = cur - 1
+				if cur < 0 then
+					cur = 10
+				end
+			else
+				cur = cur + 1
+				if cur > 10 then
+					cur = 0
+				end
+			end
+			f.blToxicityScore = cur
+			refreshAddDialogToxicIcons(f)
+		end)
+		f.blToxicSkullBtn = tbtn
+
 		local lblReason = f:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-		lblReason:SetPoint("TOPLEFT", ebName, "BOTTOMLEFT", 0, -12)
+		lblReason:SetPoint("TOPLEFT", toxicRow, "BOTTOMLEFT", 0, -10)
 		lblReason:SetJustifyH("LEFT")
 		f.blLblReason = lblReason
 
@@ -321,7 +470,7 @@ function BlackList:ShowAddPlayerDialog()
 		})
 		reasonBg:SetBackdropColor(0.04, 0.04, 0.04, 0.95)
 		reasonBg:SetBackdropBorderColor(0.5, 0.45, 0.35, 0.75)
-		reasonBg:SetSize(innerW, 96)
+		reasonBg:SetSize(innerW, 72)
 		reasonBg:SetPoint("TOPLEFT", lblReason, "BOTTOMLEFT", -4, -4)
 
 		local ebReason = CreateFrame("EditBox", "BlackListAddPlayerDialog_Reason", reasonBg)
@@ -340,27 +489,31 @@ function BlackList:ShowAddPlayerDialog()
 
 		local btnAccept = CreateFrame("Button", "BlackListAddPlayerDialog_Accept", f, "UIPanelButtonTemplate")
 		btnAccept:SetSize(100, 24)
-		btnAccept:SetPoint("TOPLEFT", reasonBg, "BOTTOMLEFT", 0, -22)
+		btnAccept:SetPoint("TOPLEFT", reasonBg, "BOTTOMLEFT", 0, -16)
 		btnAccept:SetText(ACCEPT or "Accept")
 		btnAccept:SetScript("OnClick", function()
 			local n = strtrim(f.blNameEdit:GetText() or "")
+			local realm = strtrim(f.blRealmEdit:GetText() or "")
 			local r = strtrim(f.blReasonEdit:GetText() or "")
 			if n == "" then
 				return
 			end
-			BlackListPlayer(n, r)
+			BlackList:AddPlayerManual(n, realm, r, f.blSelectedClassToken or "", f.blToxicityScore or 0)
 			f:Hide()
 		end)
 
 		local btnCancel = CreateFrame("Button", "BlackListAddPlayerDialog_Cancel", f, "UIPanelButtonTemplate")
 		btnCancel:SetSize(100, 24)
-		btnCancel:SetPoint("TOPRIGHT", reasonBg, "BOTTOMRIGHT", 0, -22)
+		btnCancel:SetPoint("TOPRIGHT", reasonBg, "BOTTOMRIGHT", 0, -16)
 		btnCancel:SetText(CANCEL or "Cancel")
 		btnCancel:SetScript("OnClick", function()
 			f:Hide()
 		end)
 
 		ebName:SetScript("OnTabPressed", function()
+			f.blRealmEdit:SetFocus()
+		end)
+		ebRealm:SetScript("OnTabPressed", function()
 			f.blReasonEdit:SetFocus()
 		end)
 		ebReason:SetScript("OnTabPressed", function()
@@ -369,6 +522,7 @@ function BlackList:ShowAddPlayerDialog()
 
 		f:SetScript("OnHide", function()
 			f.blNameEdit:ClearFocus()
+			f.blRealmEdit:ClearFocus()
 			f.blReasonEdit:ClearFocus()
 		end)
 
@@ -396,12 +550,31 @@ function BlackList:ShowAddPlayerDialog()
 	if f.BlackListTitleText then
 		f.BlackListTitleText:SetText(L["WINDOW_TITLE_ADD_PLAYER"] or L["ADD_PLAYER_POPUP"] or "Add player")
 	end
-	f.blIntro:SetText(L["BLACKLIST_POPUP_TEXT"] or "")
 	f.blLblName:SetText(L["POPUP_NAME_EDIT_HINT"] or (L["BLACKLIST_PLAYER"] or "Name"))
+	f.blLblRealm:SetText(L["ADD_DIALOG_REALM_LABEL"] or "Realm (optional)")
+	if f.blLblClass then
+		f.blLblClass:SetText(L["ADD_DIALOG_CLASS_LABEL"] or "Class")
+	end
+	if f.blLblToxic then
+		f.blLblToxic:SetText(L["ADD_DIALOG_TOXICITY_LABEL"] or "Toxicity")
+	end
 	f.blLblReason:SetText(L["REASON"] or "Reason")
+	f.blSelectedClassToken = ""
+	f.blToxicityScore = 0
+	if f.blClassDD and UIDropDownMenu_Initialize and f.blClassDD.initialize then
+		UIDropDownMenu_Initialize(f.blClassDD, f.blClassDD.initialize)
+		if UIDropDownMenu_SetSelectedValue then
+			UIDropDownMenu_SetSelectedValue(f.blClassDD, "")
+		end
+		if UIDropDownMenu_SetText then
+			UIDropDownMenu_SetText(f.blClassDD, L["UNKNOWN_CLASS"] or "Unknown")
+		end
+	end
+	refreshAddDialogToxicIcons(f)
 	f:ClearAllPoints()
-	f:SetPoint("CENTER", UIParent, "CENTER", 0, 80)
+	f:SetPoint("CENTER", UIParent, "CENTER", 0, 40)
 	f.blNameEdit:SetText("")
+	f.blRealmEdit:SetText("")
 	f.blReasonEdit:SetText("")
 	f:SetSize(dlgW, dlgH)
 	f:Raise()

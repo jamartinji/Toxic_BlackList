@@ -39,27 +39,25 @@ local function BlackList_PlaySound(kind)
 	end
 end
 
---- Retail Unit* APIs may return "secret" booleans: never use == or ~= with true/false.
---- Truthiness (if v) is allowed; never stringify — string.format/tostring can fail or yield secret strings.
---- Always return plain Lua true/false so callers never propagate secret values.
+--- Retail Unit* APIs may return "secret" booleans: never use `if v` / truthiness on API results.
+--- Use equality inside pcall so we never boolean-test a secret value.
 local function apiBoolIsTrue(v)
 	if v == nil then
 		return false
 	end
-	if type(v) == "boolean" then
-		if v then
-			return true
-		else
-			return false
-		end
-	end
-	local ok, t = pcall(function()
-		if v then
-			return true
-		end
-		return false
+	local okT, isTrue = pcall(function()
+		return v == true
 	end)
-	return ok and t == true
+	if okT and isTrue then
+		return true
+	end
+	local okF, isFalse = pcall(function()
+		return v == false
+	end)
+	if okF and isFalse then
+		return false
+	end
+	return false
 end
 
 local function BlackList_RefreshBlacklistedUnitsInGroup()
@@ -292,8 +290,12 @@ function BlackList:ScanBlacklistedTargetingPlayer()
 		if self:UnitTokenTargetsPlayer(unit) ~= true then
 			return
 		end
-		local name = UnitName(unit)
-		if not name or self:GetIndexByName(name) <= 0 then
+		local okNm, nameRaw = pcall(UnitName, unit)
+		if not okNm or not nameRaw then
+			return
+		end
+		local name = sanitizeApiString(nameRaw)
+		if name == "" or self:GetIndexByName(name) <= 0 then
 			return
 		end
 		if self.MaybeRefreshBlacklistedUnit then
@@ -460,6 +462,85 @@ local function getUnitNameRealmForList(unitToken)
 	return sanitizeApiString(name), sanitizeApiString(realm)
 end
 
+--- If `unit` is a blacklisted player, append toxicity to the default UI tooltip (mouseover, target, etc.).
+function BlackList:TryAppendToxicityToGameTooltip(tooltip)
+	if not tooltip or not tooltip.AddLine or not tooltip.GetUnit then
+		return
+	end
+	local okU, _, unit = pcall(tooltip.GetUnit, tooltip)
+	if not okU or unit == nil then
+		return
+	end
+	-- Never compare `unit` to "" — Retail may supply a secret unit token and `==` errors.
+	local okE, ex = pcall(UnitExists, unit)
+	if not okE or not apiBoolIsTrue(ex) then
+		return
+	end
+	local okP, isPl = pcall(UnitIsPlayer, unit)
+	if not okP or not apiBoolIsTrue(isPl) then
+		return
+	end
+	local okSelf, isSelf = pcall(UnitIsUnit, unit, "player")
+	if okSelf and apiBoolIsTrue(isSelf) then
+		return
+	end
+	local nm, realm = getUnitNameRealmForList(unit)
+	if not nm then
+		return
+	end
+	local idx = self.FindEntryIndexForUnit and self:FindEntryIndexForUnit(nm, realm) or 0
+	if idx <= 0 then
+		idx = self:GetIndexByName(nm)
+	end
+	if idx <= 0 then
+		return
+	end
+	local player = self:GetPlayerByIndex(idx)
+	if not player then
+		return
+	end
+	self:EnsureEntryFields(player)
+	local sc = math.floor(math.min(10, math.max(0, tonumber(player.evaluationScore) or 0)))
+	if sc <= 0 then
+		return
+	end
+	local label = L["TOOLTIP_BL_TOXICITY_LABEL"] or "Toxicity:"
+	local skulls = (self.GetEvaluationSkullRowMarkup and self:GetEvaluationSkullRowMarkup(sc)) or nil
+	local paren = self.GetToxicityScoreParentheticalMarkup and self:GetToxicityScoreParentheticalMarkup(sc) or ("(" .. sc .. ")")
+	local line = label .. "  "
+	if skulls and skulls ~= "" then
+		line = line .. skulls .. "  "
+	end
+	line = line .. paren
+	pcall(function()
+		tooltip:AddLine(" ", 1, 1, 1)
+		tooltip:AddLine(line, 0.92, 0.62, 0.38, false)
+	end)
+end
+
+function BlackList:RegisterGameTooltipToxicityLine()
+	if self._gameTooltipToxicityRegistered then
+		return
+	end
+	self._gameTooltipToxicityRegistered = true
+	local function append(tip)
+		self:TryAppendToxicityToGameTooltip(tip)
+	end
+	local usedProcessor = false
+	if TooltipDataProcessor and Enum and Enum.TooltipDataType and TooltipDataProcessor.AddTooltipPostCall then
+		usedProcessor = pcall(function()
+			TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, function(tip)
+				append(tip)
+			end)
+		end)
+	end
+	if not usedProcessor and GameTooltip and GameTooltip.HookScript then
+		GameTooltip:HookScript("OnTooltipSetUnit", function(tip)
+			append(tip)
+		end)
+	end
+end
+
 --- Warn/sound when a blacklisted player's nameplate appears. Caller must ensure UnitExists(unitToken).
 function BlackList:TryNameplateProximityWarn(unitToken)
 	if not unitToken then
@@ -556,6 +637,8 @@ function BlackList:HookFunctions()
 	end
 
 	self:RegisterChatMuteFilters();
+
+	self:RegisterGameTooltipToxicityLine();
 
 end
 

@@ -30,29 +30,77 @@ function BlackList:GetLocalizedClassDisplayName(player)
 	return token
 end
 
+--- Lowercase keys → 1 Alliance, 2 Horde. Covers API English + all addon locale strings (language changes).
+local FACTION_ALIAS_TO_ID = {}
+do
+	local function add(id, ...)
+		for i = 1, select("#", ...) do
+			local s = select(i, ...)
+			if type(s) == "string" and s ~= "" then
+				FACTION_ALIAS_TO_ID[strlower(strtrim(s))] = id
+			end
+		end
+	end
+	add(1, "Alliance", "alliance", "Allianz", "Alianza", "Alleanza", "Aliança", "Альянс", "얼라이언스", "联盟", "聯盟")
+	add(2, "Horde", "horde", "Horda", "Orda", "Орда", "호드", "部落")
+end
+
+local function factionDisplayStringFromGroupId(id)
+	if id == 1 then
+		return L["ALLIANCE"] or "Alliance"
+	end
+	if id == 2 then
+		return L["HORDE"] or "Horde"
+	end
+	return L["UNKNOWN"] or "Unknown"
+end
+
+--- Persisted `factionGroupId`: 1 = Alliance, 2 = Horde; absent/nil = unknown. `player.faction` is display-only (current locale).
+function BlackList:NormalizePlayerFactionFields(player)
+	if not player then
+		return
+	end
+	local id = tonumber(player.factionGroupId)
+	if id == 1 or id == 2 then
+		player.factionGroupId = id
+		player.faction = factionDisplayStringFromGroupId(id)
+		return
+	end
+	player.factionGroupId = nil
+	local s = strlower(strtrim(tostring(player.faction or "")))
+	if s ~= "" then
+		local mapped = FACTION_ALIAS_TO_ID[s]
+		if mapped == 1 or mapped == 2 then
+			player.factionGroupId = mapped
+			player.faction = factionDisplayStringFromGroupId(mapped)
+			return
+		end
+	end
+	local raceStr = player.race
+	if raceStr and strtrim(tostring(raceStr)) ~= "" then
+		local fac = GetFaction(raceStr)
+		if fac == 1 or fac == 2 then
+			player.factionGroupId = fac
+			player.faction = factionDisplayStringFromGroupId(fac)
+		end
+	end
+end
+
 --- Returns 1 = Alliance, 2 = Horde, nil = unknown (used for colors, icons).
 function BlackList:GetFactionIdForPlayer(player)
 	if not player then
 		return nil
 	end
 	self:EnsureEntryFields(player)
-	local f = strtrim(tostring(player.faction or ""))
-	local locA = L["ALLIANCE"] or "Alliance"
-	local locH = L["HORDE"] or "Horde"
-	if f == locA or f == "Alliance" then
-		return 1
-	end
-	if f == locH or f == "Horde" then
-		return 2
+	local gid = tonumber(player.factionGroupId)
+	if gid == 1 or gid == 2 then
+		return gid
 	end
 	local raceStr = player.race
 	if raceStr and raceStr ~= "" then
 		local fac = GetFaction(raceStr)
-		if fac == 1 then
-			return 1
-		end
-		if fac == 2 then
-			return 2
+		if fac == 1 or fac == 2 then
+			return fac
 		end
 	end
 	return nil
@@ -129,6 +177,74 @@ end
 --- List row text (icon is rendered by the row widget, not inline markup).
 function BlackList:GetStandaloneListIconMarkupForPlayer(player)
 	return ""
+end
+
+--- Repeated DemonInvasion5 markup for tooltips (scores 1–10). Nil if score is 0.
+function BlackList:GetEvaluationSkullRowMarkup(score)
+	score = math.floor(math.min(10, math.max(0, tonumber(score) or 0)))
+	if score < 1 then
+		return nil
+	end
+	local w, h = 14, 14
+	local mk
+	if CreateAtlasMarkup then
+		pcall(function()
+			mk = CreateAtlasMarkup("DemonInvasion5", w, h)
+		end)
+		if not mk or mk == "" then
+			pcall(function()
+				mk = CreateAtlasMarkup("questlog-questtypeicon-dungeon", w, h)
+			end)
+		end
+	end
+	if not mk or mk == "" then
+		return nil
+	end
+	local t = {}
+	for i = 1, score do
+		t[i] = mk
+	end
+	return table.concat(t)
+end
+
+--- RGB for toxicity 0–10: 0 gray, 1 green → yellow → orange → 10 red.
+function BlackList:GetToxicityScoreColorRGB(score)
+	score = math.floor(math.min(10, math.max(0, tonumber(score) or 0)))
+	if score == 0 then
+		return 0.55, 0.55, 0.58
+	end
+	local p = (score - 1) / 9
+	local r1, g1, b1, r2, g2, b2, t
+	if p <= 0.33 then
+		t = p / 0.33
+		r1, g1, b1 = 0.12, 0.82, 0.28
+		r2, g2, b2 = 0.95, 0.88, 0.18
+	elseif p <= 0.66 then
+		t = (p - 0.33) / 0.33
+		r1, g1, b1 = 0.95, 0.88, 0.18
+		r2, g2, b2 = 1, 0.52, 0.12
+	else
+		t = (p - 0.66) / 0.34
+		r1, g1, b1 = 1, 0.52, 0.12
+		r2, g2, b2 = 0.95, 0.18, 0.14
+	end
+	return r1 + (r2 - r1) * t, g1 + (g2 - g1) * t, b1 + (b2 - b1) * t
+end
+
+--- Colored "(n)" for tooltips and details (0–10).
+function BlackList:GetToxicityScoreParentheticalMarkup(score)
+	score = math.floor(math.min(10, math.max(0, tonumber(score) or 0)))
+	local r, g, b = self:GetToxicityScoreColorRGB(score)
+	local hex = self:RGBToHex(r, g, b)
+	return "|cff" .. hex .. "(" .. score .. ")|r"
+end
+
+--- Colored toxicity digit(s) for list rows (no parentheses).
+function BlackList:GetToxicityScoreNumberMarkup(score)
+	score = math.floor(math.min(10, math.max(0, tonumber(score) or 0)))
+	local r, g, b = self:GetToxicityScoreColorRGB(score)
+	local hex = self:RGBToHex(r, g, b)
+	return "|cff" .. hex .. tostring(score) .. "|r"
 end
 
 --- Line 1: name (class color) - realm (white).
@@ -479,6 +595,23 @@ function BlackList:FormatChatAlertFromFormatted(player, formattedLine, severity)
 		return self:FormatChatTagPlain(inner, severity, player["reason"])
 	end
 	return self:FormatChatTagPlain(inner, severity)
+end
+
+--- Plain `Name-Realm` (or `Name` if realm empty) for copy / filter; no color codes.
+function BlackList:GetPlayerBattleNetIdString(player)
+	if not player then
+		return ""
+	end
+	self:EnsureEntryFields(player)
+	local n = strtrim(tostring(player.name or ""))
+	local r = strtrim(tostring(player.realm or ""))
+	if n == "" then
+		return ""
+	end
+	if r ~= "" then
+		return n .. "-" .. r
+	end
+	return n
 end
 
 --- Standalone list line: faction icon, then name (class color) + realm in gray (reason in tooltip).

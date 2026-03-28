@@ -72,6 +72,30 @@ function U.applyStandaloneAtlasTexture(tex, atlasList, fallbackTexture, texCoord
 	return ok
 end
 
+--- Chat mute icons: STT-off (gray) when not muted; muted-silenced atlas when muted.
+function U.applyMuteIconTexture(tex, muted)
+	if not tex then
+		return false
+	end
+	local ok = false
+	if muted then
+		ok = pcall(function()
+			tex:SetAtlas("voicechat-icon-STT-mutesilenced")
+		end) and tex:GetAtlas()
+		if ok then
+			tex:SetVertexColor(1, 1, 1, 1)
+		end
+	else
+		ok = pcall(function()
+			tex:SetAtlas("voicechat-channellist-icon-STT-off")
+		end) and tex:GetAtlas()
+		if ok then
+			tex:SetVertexColor(0.55, 0.58, 0.62, 1)
+		end
+	end
+	return ok
+end
+
 --- Mouseover highlight: soft/circular, white, slightly larger than the button (not the default blue square).
 function U.applyStandaloneIconButtonHighlight(btn)
 	if not btn then
@@ -246,10 +270,13 @@ function U.applyStandaloneTooltipPlayerColors(tooltip, blackListAddon, player)
 
 	local cr, cg, cb = 0.75, 0.75, 0.75
 	local fr, fg, fb = 0.12, 0.12, 0.12
+	-- Returns plain Lua numbers from faction id — no pcall (avoids swallowing errors and keeps border/fill reliable).
 	if blackListAddon.GetSpecificFactionColorRGB then
 		local rr, gg, bb = blackListAddon:GetSpecificFactionColorRGB(player)
-		cr, cg, cb = rr, gg, bb
-		fr, fg, fb = rr * 0.28, gg * 0.28, bb * 0.28
+		if rr ~= nil and gg ~= nil and bb ~= nil then
+			cr, cg, cb = rr, gg, bb
+			fr, fg, fb = rr * 0.28, gg * 0.28, bb * 0.28
+		end
 	end
 
 	pcall(function()
@@ -292,15 +319,26 @@ function U.applyStandaloneTooltipPlayerColors(tooltip, blackListAddon, player)
 		end)
 		if ok and okB and trim:GetAtlas() and trimBottom:GetAtlas() then
 			trim:SetTexCoord(0, 1, 0, 0.36)
-			local tw = math.max(140, math.floor((tooltip:GetWidth() or 220) + 8))
-			local srcW, srcH = 467, 141
-			if C_Texture and C_Texture.GetAtlasInfo then
-				local ok2, info = pcall(C_Texture.GetAtlasInfo, atlas)
-				if ok2 and info and info.width and info.height and info.width > 0 and info.height > 0 then
-					srcW, srcH = info.width, info.height
+			-- Prefer live width after Show(); if GetWidth() errors (rare taint), fall back to a sane default.
+			local tw, th, bh = 220, 6, 6
+			local okSz = pcall(function()
+				local wRaw = tooltip:GetWidth()
+				local wNum = (type(wRaw) == "number" and wRaw) or 220
+				local w = wNum + 8
+				tw = math.max(140, math.floor(w))
+				local srcW, srcH = 467, 141
+				if C_Texture and C_Texture.GetAtlasInfo then
+					local ok2, info = pcall(C_Texture.GetAtlasInfo, atlas)
+					if ok2 and info and type(info.width) == "number" and type(info.height) == "number" and info.width > 0 and info.height > 0 then
+						srcW, srcH = info.width, info.height
+					end
 				end
+				th = math.max(6, math.floor((tw * (((0.36 - 0) * srcH) / srcW)) + 0.5))
+				bh = math.max(6, math.floor((tw * (((1 - (2 / 3)) * srcH) / srcW)) + 0.5))
+			end)
+			if not okSz then
+				tw, th, bh = 220, 6, 6
 			end
-			local th = math.max(6, math.floor((tw * (((0.36 - 0) * srcH) / srcW)) + 0.5))
 			trim:SetSize(tw, th)
 			trim:ClearAllPoints()
 			trim:SetPoint("BOTTOM", tooltip, "TOP", 0, -8)
@@ -308,7 +346,6 @@ function U.applyStandaloneTooltipPlayerColors(tooltip, blackListAddon, player)
 			trim:Show()
 
 			trimBottom:SetTexCoord(0, 1, 2 / 3, 1)
-			local bh = math.max(6, math.floor((tw * (((1 - (2 / 3)) * srcH) / srcW)) + 0.5))
 			trimBottom:SetSize(tw, bh)
 			trimBottom:ClearAllPoints()
 			trimBottom:SetPoint("TOP", tooltip, "BOTTOM", 0, 9)
@@ -473,4 +510,76 @@ function U.createBlackListOption(frame, name, desc, pad, onclick)
 	ct:SetJustifyH("LEFT")
 
 	return c, ct
+end
+
+--- Toxicity row icons (same atlas as standalone details editor).
+function U.applyToxicityRowIconVisual(tex, lit)
+	if not tex then
+		return
+	end
+	if lit then
+		pcall(function()
+			if tex.SetDesaturated then
+				tex:SetDesaturated(false)
+			end
+		end)
+		tex:SetVertexColor(1, 1, 1, 1)
+	else
+		pcall(function()
+			if tex.SetDesaturated then
+				tex:SetDesaturated(true)
+			end
+		end)
+		tex:SetVertexColor(0.38, 0.38, 0.45, 1)
+	end
+end
+
+function U.applyToxicityRowIconAtlas(tex)
+	if not tex then
+		return false
+	end
+	local ok = pcall(function()
+		tex:SetAtlas("DemonInvasion5")
+	end) and tex:GetAtlas()
+	if not ok then
+		ok = pcall(function()
+			tex:SetAtlas("questlog-questtypeicon-dungeon")
+		end) and tex:GetAtlas()
+	end
+	if not ok then
+		tex:SetTexture("Interface\\TARGETINGFRAME\\UI-TargetingFrame-Skull")
+		tex:SetTexCoord(0, 1, 0, 1)
+	end
+	return true
+end
+
+--- Single toxicity skull (add dialog): 0 = desaturated gray (no color tint overlay), 1–9 = full green atlas, 10 = desaturated + red (same idea as list row lock).
+function U.applyToxicitySkullSingleState(tex, score)
+	if not tex then
+		return
+	end
+	U.applyToxicityRowIconAtlas(tex)
+	score = math.floor(math.min(10, math.max(0, tonumber(score) or 0)))
+	if score == 0 then
+		pcall(function()
+			if tex.SetDesaturated then
+				tex:SetDesaturated(true)
+			end
+		end)
+		tex:SetVertexColor(1, 1, 1, 1)
+	elseif score == 10 then
+		pcall(function()
+			if tex.SetDesaturated then
+				tex:SetDesaturated(true)
+			end
+		end)
+		tex:SetVertexColor(1, 0.28, 0.28, 1)
+	else
+		pcall(function()
+			if tex.SetDesaturated then
+				tex:SetDesaturated(false)
+			end
+		end)
+		tex:SetVertexColor(1, 1, 1, 1)
+	end
 end

@@ -89,9 +89,18 @@ function BlackList:RefreshFloatingQuickButtonVisibility()
 	end
 end
 
---- Ctrl+left-click: add/edit target with edit window; minimap and normal clicks: left list, right options.
+--- Ctrl+left-click: add/edit when you have a player target; otherwise open the add-player dialog.
 function BlackList:FloatingQuickButtonAddTargetAndEdit()
-	if not UnitExists("target") or not UnitIsPlayer("target") then
+	local hasPlayerTarget = false
+	pcall(function()
+		if UnitExists("target") and UnitIsPlayer("target") then
+			hasPlayerTarget = true
+		end
+	end)
+	if not hasPlayerTarget then
+		if self.ShowAddPlayerDialog then
+			self:ShowAddPlayerDialog()
+		end
 		return
 	end
 	local nm = UnitName("target")

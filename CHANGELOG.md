@@ -4,80 +4,65 @@ All notable changes to **Toxic BlackList** are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.2.0] - 2026-03-27
+## [1.2.0] - 2026-03-28
 
 ### Added
 
-- Context menu entries on **Friends → Recent Allies** (online and offline), same add/remove blacklist flow as target and LFG menus (`MENU_UNIT_RECENT_ALLY`, `MENU_UNIT_RECENT_ALLY_OFFLINE`).
-- Name/realm resolution for context and nameplates: **`GetPlayerInfoByGUID` with raw GUID** when string copy fails; **`UnitNameUnmodified`** as first try on nameplates; class/race fallback from `recentAllyData.characterData` when needed.
+- **Friends → Recent Allies:** context-menu actions to add or remove players from the blacklist.
+- **Nameplate and menu resolution:** more reliable name/realm when the game gives little data or across realms.
+- **Row lock** on the standalone list so an entry cannot be removed until you unlock it.
+- **Chat mute** per entry (toggle in the edit panel and on list rows).
+- **Toxicity level** (0–10) on entries.
+- **Game tooltips** (e.g. mouseover/target) can show toxicity for players on your blacklist when their saved score is above zero.
+- **Floating quick button:** Ctrl+left-click with **no** player target opens the add-player dialog; with a **player** target, adds if needed and opens the editor.
 
 ### Changed
 
-- **Retail “secret” API values (Midnight / 12.x):** safe handling for secret GUIDs (plain copy before `strsub`), secret booleans from `UnitExists` / `UnitIsUnit` / `UnitIsPlayer` without comparing to `true`/`false`, and `apiBoolIsTrue` that returns plain Lua booleans only.
-- **Nameplate proximity:** resolve **name and realm before** the strict “is another player” check so hostile / opposite-faction nameplates still match the list when `UnitIsPlayer` or GUID prefix checks are unreliable.
-- **Standalone list:** unknown-faction row icon (`QuestLegendaryTurnin`) anchor nudged left to align with faction badges; Alliance/Horde icons explicitly re-anchored after size changes.
-- Startup errors from `BlackList_RunStep` still surface in chat (red text); verbose `BlackList.Log` / `BlackListDebugLog` toggle removed.
-
-### Removed
-
-- Temporary nearby-player experiment module and related XML load.
-- Chat spam from optional debug logging (`/run BlackListDebugLog` workflow).
+- **Faction** is stored with stable internal IDs (Alliance/Horde). Existing entries are updated when you load; changing the client language no longer drops faction display for old saves that used localized text.
 
 ### Fixed
 
-- `GetPlayerInfoByGUID` return values: **name** is the 6th return (was shifted in one path).
-- Stale “RegisterEvents: frame missing” log when the top frame is absent.
+- Wrong player details in some edge cases.
+- Add-by-target and add-by-name failing in some situations.
 
 ## [1.1.0] - 2026-03-27
 
 ### Added
 
-- Standalone list sorting context menu (right click on row): **Date**, **Name**, **Realm**, **Faction** with ascending/descending toggle.
-- Standalone **Undo** action button to restore recent deletions.
-- Standalone list search UX improvements: toggle button, hide/show search bar behavior, localized placeholder text and filter toggle tooltips.
-- UI decoration framework for top trims on standalone windows.
+- Standalone list sorting (header/row menu): **date**, **name**, **realm**, **faction**, ascending or descending.
+- **Undo** button for recent deletions in the list window.
+- List **search** improvements: toggle, placeholder text, filter tooltips.
+- Top decoration on standalone windows.
 
 ### Changed
 
-- Standalone list interactions refined:
-  - when editor is already open, clicking another row switches the editor view.
-- Standalone row visuals updated:
-  - unknown/manual entries now use a dedicated icon style and sizing.
-- Tooltip styling refined:
-  - faction-colored border/background behavior updated,
-  - top and bottom decorative trims added/tuned and reset safely when tooltip closes.
-- Standalone window chrome/layout pass:
-  - tighter top spacing,
-  - icon bar spacing and ordering adjustments,
-- Add-by-name dialog layout adjusted with cleaner vertical spacing around reason box and action buttons.
-- Details window styling updated:
-  - top trim decoration added.
+- With the editor open, clicking another list row switches the edited player.
+- Row visuals for manual/incomplete entries; tooltip styling (faction-colored border/background, trims reset when the tooltip closes).
+- Spacing in the list window, add-by-name dialog, and details panel.
 
 ### Fixed
 
-- Multiple visual alignments.
+- Several visual alignment issues.
 
 ## [1.0.3] - 2026-03-27
 
 ### Fixed
 
-- **secret-value taint**: Avoid comparing raw realm strings from `UnitName` / `GetRealmName` and avoid boolean tests on API results (`UnitExists`, `UnitIsPlayer`, `UnitIsUnit`) in `CollectPlayerFieldsFromUnit`, proximity/nameplate scans, and context-menu unit resolution — prevents Lua errors when nameplates or “targeting you” alerts run.
+- Errors when using **nameplates** or **“targeting you”** alerts.
 
 ## [1.0.2] - 2026-03-26
 
 ### Added
 
-- **Standalone edit window**: Info icon (bottom-left, same row as Save) with a tooltip showing Added/Updated dates (same gray text as before); default panel size slightly increased.
+- Edit window: **info** control (same row as Save) with a tooltip for added/updated dates; slightly wider default panel.
 
 ### Fixed
 
-- **Sounds**: Respect **Play sounds** in `PlaySoundForKind`; restore per-context presets when re-enabling sounds after they were muted by migration (`_blSoundMutedByPlaySoundsOff`); optional login restore.
-- **Sounds**: Defer preset playback by one frame (`C_Timer.After(0)`) so SFX from OnUpdate/combat paths are not blocked.
-- **Nameplate proximity**: `NAME_PLATE_UNIT_ADDED` can fire before the unit is valid — schedule checks at 0s and 0.05s; resolve name/realm with `UnitFullName` / `UnitName` and `FindEntryIndexForUnit` for cross-realm matches.
-
+- **Sounds** respect the game’s sound option and restore correctly after being muted by migration.
+- **Nameplate** proximity checks run more reliably right when a plate appears.
 
 ## [1.0.1] - 2026-03-26
 
 ### Fixed
 
-- **Standalone list window**: Restored the style frame chrome (NineSlice / `ButtonFrameTemplateNoPortrait`) so the title bar and border match the Options and Edit windows again.
+- Standalone **list** window uses the same frame chrome (title/border) as Options and Edit.
