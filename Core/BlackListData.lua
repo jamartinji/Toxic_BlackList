@@ -5,11 +5,35 @@ BlackList = BlackList or {}
 --- Single saved list for the whole WoW account (not per realm).
 local ACCOUNT_LIST_KEY = "__ACCOUNT__"
 
+--- True only when API returned plain true (safe for Retail "secret" booleans).
+local function unitApiIsTrue(v)
+	if v == nil then
+		return false
+	end
+	local ok, eq = pcall(function()
+		return v == true
+	end)
+	return ok and eq
+end
+
+--- Copy API strings to plain literals (Retail "secret string" taint from UnitName/GetRealmName, etc.).
+--- Must be declared before NormalizePlayerName (Lua locals are not visible above their definition).
+local function SanitizeApiString(s)
+	if s == nil then
+		return ""
+	end
+	local ok, out = pcall(function()
+		return strtrim(string.format("%s", s))
+	end)
+	return (ok and out) or ""
+end
+
 local function NormalizePlayerName(name)
-	if not name or name == "" then
+	local plain = SanitizeApiString(name)
+	if plain == "" then
 		return nil
 	end
-	local s = Ambiguate and Ambiguate(name, "none") or name
+	local s = Ambiguate and Ambiguate(plain, "none") or plain
 	if GetLocale() ~= "zhTW" and GetLocale() ~= "zhCN" and GetLocale() ~= "koKR" then
 		return string.lower(s)
 	end
@@ -19,14 +43,6 @@ end
 --- Lowercase trimmed realm for comparisons; empty = unknown / manual name-only.
 local function NormalizeRealmKey(realm)
 	return strtrim(tostring(realm or "")):lower()
-end
-
---- Copy API strings to plain literals (Retail "secret string" taint from UnitName/GetRealmName, etc.).
-local function SanitizeApiString(s)
-	if s == nil then
-		return ""
-	end
-	return strtrim(string.format("%s", s))
 end
 
 --- Merge legacy per-realm buckets into one account list (dedupe by name+realm). Safe to call repeatedly after migration flag is set.
@@ -139,6 +155,32 @@ function BlackList:EnsureEntryFields(player)
 	if player.muted == nil then
 		player.muted = false
 	end
+	if player.entryLocked == nil then
+		player.entryLocked = false
+	end
+	if player.evaluationScore == nil then
+		player.evaluationScore = 0
+	else
+		local s = tonumber(player.evaluationScore)
+		if not s then
+			player.evaluationScore = 0
+		else
+			player.evaluationScore = math.max(0, math.min(10, math.floor(s + 0.5)))
+		end
+	end
+	-- factionGroupId 1/2 = stable; player.faction = display string for current locale (migrates old localized saves).
+	if self.NormalizePlayerFactionFields then
+		self:NormalizePlayerFactionFields(player)
+	end
+end
+
+--- Standalone list: when true, the entry cannot be removed until unlocked (golden lock).
+function BlackList:IsEntryDeleteLocked(player)
+	if not player then
+		return false
+	end
+	self:EnsureEntryFields(player)
+	return player.entryLocked == true
 end
 
 function BlackList:MigrateAllBlacklistedEntries()
@@ -220,11 +262,11 @@ function BlackList:CollectPlayerFieldsFromUnit(unit)
 		return nil
 	end
 	local okExists, unitExists = pcall(UnitExists, unit)
-	if not okExists or unitExists ~= true then
+	if not okExists or not unitApiIsTrue(unitExists) then
 		return nil
 	end
 	local okPl, isPl = pcall(UnitIsPlayer, unit)
-	if not okPl or isPl ~= true then
+	if not okPl or not unitApiIsTrue(isPl) then
 		return nil
 	end
 	local level = unitLevelString(unit)
@@ -249,9 +291,12 @@ function BlackList:CollectPlayerFieldsFromUnit(unit)
 		fg = fgv
 	end
 	local factionStr = ""
+	local factionGroupId = nil
 	if fg == "Alliance" then
+		factionGroupId = 1
 		factionStr = L["ALLIANCE"] or "Alliance"
 	elseif fg == "Horde" then
+		factionGroupId = 2
 		factionStr = L["HORDE"] or "Horde"
 	else
 		factionStr = L["UNKNOWN"] or "Unknown"
@@ -264,6 +309,7 @@ function BlackList:CollectPlayerFieldsFromUnit(unit)
 		realm = realm,
 		guild = guildName,
 		faction = factionStr,
+		factionGroupId = factionGroupId,
 	}
 end
 
@@ -287,8 +333,14 @@ function BlackList:ApplyUnitDataToPlayerEntry(player, data)
 		player.realm = data.realm
 	end
 	player.guild = data.guild or ""
-	if data.faction and data.faction ~= "" then
+	if data.factionGroupId == 1 or data.factionGroupId == 2 then
+		player.factionGroupId = data.factionGroupId
+	elseif data.faction and data.faction ~= "" then
 		player.faction = data.faction
+		player.factionGroupId = nil
+	end
+	if self.NormalizePlayerFactionFields then
+		self:NormalizePlayerFactionFields(player)
 	end
 	player.updatedAt = time()
 	if not self:PlayerEntryNeedsInfo(player) then
@@ -322,19 +374,23 @@ function BlackList:TryUpdateBlacklistedPlayerFromUnit(unit)
 		return
 	end
 	local okExists, unitExists = pcall(UnitExists, unit)
-	if not okExists or unitExists ~= true then
+	if not okExists or not unitApiIsTrue(unitExists) then
 		return
 	end
 	local okPl, isPl = pcall(UnitIsPlayer, unit)
-	if not okPl or isPl ~= true then
+	if not okPl or not unitApiIsTrue(isPl) then
 		return
 	end
 	local okU, isSelf = pcall(UnitIsUnit, unit, "player")
-	if okU and isSelf == true then
+	if okU and unitApiIsTrue(isSelf) then
 		return
 	end
-	local name = UnitName(unit)
-	if not name then
+	local okNm, nameRaw = pcall(UnitName, unit)
+	if not okNm or not nameRaw then
+		return
+	end
+	local name = SanitizeApiString(nameRaw)
+	if name == "" then
 		return
 	end
 	local data = self:CollectPlayerFieldsFromUnit(unit)
@@ -505,6 +561,7 @@ function BlackList:AddPlayer(player, reason)
 		["realm"] = realm or "",
 		["guild"] = guild or "",
 		["faction"] = faction or "",
+		["factionGroupId"] = (dataFromUnit and dataFromUnit.factionGroupId) or nil,
 		["manualAdd"] = manualAdd,
 		["updatedAt"] = updatedAt,
 		["muted"] = false,
@@ -532,6 +589,69 @@ function BlackList:AddPlayer(player, reason)
 		end
 	end
 
+end
+
+--- Manual add from dialog: optional realm (not validated against Blizzard), class token, toxicity 0–10.
+function BlackList:AddPlayerManual(name, realm, reason, classToken, evaluationScore)
+	if not name or strtrim(tostring(name)) == "" then
+		return false
+	end
+	name = strtrim(tostring(name))
+	realm = strtrim(tostring(realm or ""))
+	reason = reason or ""
+	classToken = strtrim(tostring(classToken or ""))
+	local eval = tonumber(evaluationScore) or 0
+	eval = math.max(0, math.min(10, math.floor(eval + 0.5)))
+	if (GetLocale() ~= "zhTW") and (GetLocale() ~= "zhCN") and (GetLocale() ~= "koKR") then
+		local _, len = string.find(name, "[%z\1-\127\194-\244][\128-\191]*")
+		if len then
+			name = string.upper(string.sub(name, 1, len)) .. string.lower(string.sub(name, len + 1))
+		end
+	end
+	local dupIdx = self:GetIndexByNameAndRealm(name, realm)
+	if dupIdx > 0 then
+		local p = self:GetPlayerByIndex(dupIdx)
+		self:AddMessage(self:FormatChatTagLine(p, L["ALREADY_BLACKLISTED"], "listAdd"), "styled")
+		return false
+	end
+	local added = time()
+	local entry = {
+		["name"] = name,
+		["reason"] = reason,
+		["added"] = added,
+		["level"] = "",
+		["class"] = classToken,
+		["race"] = "",
+		["raceToken"] = "",
+		["realm"] = realm,
+		["guild"] = "",
+		["faction"] = "",
+		["factionGroupId"] = nil,
+		["manualAdd"] = true,
+		["updatedAt"] = nil,
+		["muted"] = false,
+	}
+	self:EnsureEntryFields(entry)
+	entry.evaluationScore = eval
+	table.insert(self:GetAccountList(), entry)
+	local newIdx = self:GetIndexByNameAndRealm(name, realm)
+	local pAdded = newIdx > 0 and self:GetPlayerByIndex(newIdx)
+	if pAdded then
+		self:AddMessage(self:FormatChatTagLine(pAdded, L["ADDED_TO_BLACKLIST"], "listAdd"), "styled")
+	end
+	local standaloneFrame = getglobal("BlackListStandaloneFrame")
+	if standaloneFrame and standaloneFrame:IsVisible() then
+		if newIdx and newIdx > 0 then
+			self:SetSelectedBlackList(newIdx)
+		end
+		if self.UpdateStandaloneUI then
+			self:UpdateStandaloneUI()
+		end
+		if self.ShowStandaloneDetails then
+			self:ShowStandaloneDetails()
+		end
+	end
+	return true
 end
 
 --- Add from right-click menu (name + realm + optional class/race from context). `unitToken` fills guild/level/etc.
@@ -600,6 +720,7 @@ function BlackList:AddPlayerFromContextMenu(name, realm, classToken, race, unitT
 			["realm"] = dataFromUnit.realm or realm or "",
 			["guild"] = dataFromUnit.guild or "",
 			["faction"] = dataFromUnit.faction or "",
+			["factionGroupId"] = dataFromUnit.factionGroupId,
 			["manualAdd"] = false,
 			["updatedAt"] = time(),
 			["muted"] = false,
@@ -616,6 +737,7 @@ function BlackList:AddPlayerFromContextMenu(name, realm, classToken, race, unitT
 			["realm"] = realm or "",
 			["guild"] = "",
 			["faction"] = "",
+			["factionGroupId"] = nil,
 			["manualAdd"] = false,
 			["updatedAt"] = time(),
 			["muted"] = false,
@@ -733,6 +855,10 @@ function BlackList:RemovePlayer(player)
 	end
 
 	local pRem = self:GetPlayerByIndex(index)
+	if self:IsEntryDeleteLocked(pRem) then
+		self:AddMessage(self:FormatChatTagPlain(L["REMOVE_BLOCKED_ENTRY_LOCKED"] or "That entry is locked. Unlock it in the list before removing.", "systemWarn"), "styled")
+		return
+	end
 	name = self:GetNameByIndex(index);
 
 	table.remove(self:GetAccountList(), index);

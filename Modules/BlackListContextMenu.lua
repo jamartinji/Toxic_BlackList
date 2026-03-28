@@ -105,6 +105,8 @@ function BlackList:RegisterContextMenu()
 				end
 			elseif contextData.unit then
 				guid = UnitGUID(contextData.unit)
+			elseif contextData.guid then
+				guid = contextData.guid
 			else
 				return
 			end
@@ -114,6 +116,22 @@ function BlackList:RegisterContextMenu()
 					class = c
 				end
 				race = locRace
+			end
+			-- Friends list → Recent Allies: no unit token; use API character data if GUID lookup missed class/race
+			local raChar = contextData.recentAllyData and contextData.recentAllyData.characterData
+			if raChar then
+				if not class and raChar.classID and C_CreatureInfo and C_CreatureInfo.GetClassInfo then
+					local ci = C_CreatureInfo.GetClassInfo(raChar.classID)
+					if ci then
+						class = ci.classFile
+					end
+				end
+				if (not race or race == "") and raChar.raceID and C_CreatureInfo and C_CreatureInfo.GetRaceInfo then
+					local ri = C_CreatureInfo.GetRaceInfo(raChar.raceID)
+					if ri then
+						race = ri.raceName
+					end
+				end
 			end
 		end
 
@@ -148,6 +166,9 @@ function BlackList:RegisterContextMenu()
 		"MENU_UNIT_FRIEND",
 		"MENU_UNIT_COMMUNITIES_GUILD_MEMBER",
 		"MENU_UNIT_COMMUNITIES_MEMBER",
+		-- Friends frame → Recent Allies (right-click on a recent ally row)
+		"MENU_UNIT_RECENT_ALLY",
+		"MENU_UNIT_RECENT_ALLY_OFFLINE",
 		"MENU_LFG_FRAME_SEARCH_ENTRY",
 		"MENU_LFG_FRAME_MEMBER_APPLY",
 	}
