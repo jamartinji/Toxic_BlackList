@@ -1,6 +1,6 @@
 # Toxic BlackList
 
-[![Version](https://img.shields.io/badge/Version-1.2.7-informational?style=for-the-badge)](Toxic_BlackList.toc)
+[![Version](https://img.shields.io/badge/Version-1.2.3-informational?style=for-the-badge)](Toxic_BlackList.toc)
 [![WoW](https://img.shields.io/badge/WoW-12.0.1%20(Midnight)-orange?style=for-the-badge)](https://worldofwarcraft.blizzard.com/)
 [![Lua](https://img.shields.io/badge/Lua-5.x-blue?style=for-the-badge)](https://www.lua.org/)
 
