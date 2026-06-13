@@ -254,9 +254,4 @@ L["SOUND_PRESET_TELL"] = "Notifica sussurro"
 L["SOUND_PRESET_BNET_TOAST"] = "Notifica Battle.net"
 L["SOUND_PRESET_LOSS_OF_CONTROL"] = "Perdita di controllo"
 
--- ---------------------------------------------------------------------------
--- Settings panel (Esc menu)
--- ---------------------------------------------------------------------------
-
-L["SETTINGS_HINT_OPTIONS_ONLY"] = "Questo pannello contiene solo le opzioni. L'elenco si apre con /tbl o dal menu."
 L["OPT_ALERT_SOUND"] = "Suono di avviso"

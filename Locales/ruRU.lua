@@ -254,9 +254,4 @@ L["SOUND_PRESET_TELL"] = "Tell / whisper notification"
 L["SOUND_PRESET_BNET_TOAST"] = "Battle.net toast"
 L["SOUND_PRESET_LOSS_OF_CONTROL"] = "Loss of control"
 
--- ---------------------------------------------------------------------------
--- Settings panel (Esc menu)
--- ---------------------------------------------------------------------------
-
-L["SETTINGS_HINT_OPTIONS_ONLY"] = "Эта панель содержит только настройки. Список открывается через /tbl или меню."
 L["OPT_ALERT_SOUND"] = "Звук предупреждения"

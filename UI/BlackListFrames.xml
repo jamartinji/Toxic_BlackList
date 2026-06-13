@@ -13,7 +13,6 @@
 	<Script file="UI\BlackListUI_Details.lua" />
 	<Script file="UI\BlackListUI_Friends.lua" />
 	<Script file="UI\BlackListUI_QuickButton.lua" />
-	<Script file="UI\BlackListSettings.lua" />
 	<!-- Frame layout split for readability (see UI/Xml/). -->
 	<Include file="UI\Xml\BlackListFrames_Virtual.xml" />
 	<Include file="UI\Xml\BlackListFrames_MainPanel.xml" />
