@@ -4,6 +4,16 @@ All notable changes to **Toxic BlackList** are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.4] - 2026-06-13
+
+### Added
+
+- Bumped toc compatibility for wow 12.0.7
+
+### Removed
+
+- **WoW addon settings menu:** Toxic BlackList no longer appears under Esc → Options → AddOns. Open **Options** from the addon’s own window (gear icon), minimap button, or floating button.
+
 ## [1.2.3] - 2026-04-19
 
 - Bump version for 12.0.5
