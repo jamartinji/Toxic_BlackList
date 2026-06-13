@@ -176,7 +176,6 @@ L["PARTY_WARN_TITLE"] = "WARNING: Blacklisted player in your party!"
 -- Logs & minimap
 -- ---------------------------------------------------------------------------
 
-L["LOG_CHATFRAME_HOOK_MISSING"] = "ChatFrame_OnEvent not found; whisper filter may not work."
 L["LOG_ERROR_IN"] = "ERROR in %s:"
 L["REASON_SAVED_FOR"] = "Reason saved for %s"
 L["MINIMAP_TOOLTIP_LEFT_CLICK"] = "Left-click: %s"

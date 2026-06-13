@@ -176,7 +176,6 @@ L["PARTY_WARN_TITLE"] = "WARNUNG: Spieler der schwarzen Liste in deiner Gruppe!"
 -- Logs & minimap
 -- ---------------------------------------------------------------------------
 
-L["LOG_CHATFRAME_HOOK_MISSING"] = "ChatFrame_OnEvent nicht gefunden; Flüsterfilter funktioniert evtl. nicht."
 L["LOG_ERROR_IN"] = "FEHLER in %s:"
 L["REASON_SAVED_FOR"] = "Grund gespeichert für %s"
 L["MINIMAP_TOOLTIP_LEFT_CLICK"] = "Linksklick: %s"

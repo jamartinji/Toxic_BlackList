@@ -15,9 +15,7 @@
 	<Script file="UI\BlackListUI_QuickButton.lua" />
 	<!-- Frame layout split for readability (see UI/Xml/). -->
 	<Include file="UI\Xml\BlackListFrames_Virtual.xml" />
-	<Include file="UI\Xml\BlackListFrames_MainPanel.xml" />
 	<Include file="UI\Xml\BlackListFrames_Details.xml" />
-	<Include file="UI\Xml\BlackListFrames_LegacyOptions.xml" />
 	<Include file="UI\Xml\BlackListFrames_TopFrame.xml" />
 
 </Ui>

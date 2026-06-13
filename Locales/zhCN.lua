@@ -176,7 +176,6 @@ L["PARTY_WARN_TITLE"] = "警告：队伍中有黑名单玩家！"
 -- Logs & minimap
 -- ---------------------------------------------------------------------------
 
-L["LOG_CHATFRAME_HOOK_MISSING"] = "未找到 ChatFrame_OnEvent，密语过滤可能无效。"
 L["LOG_ERROR_IN"] = "%s 出错："
 L["REASON_SAVED_FOR"] = "已保存 %s 的原因"
 L["MINIMAP_TOOLTIP_LEFT_CLICK"] = "左键：%s"

@@ -10,9 +10,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Bumped toc compatibility for wow 12.0.7
 
+### Fixed
+
+- **Startup chat warning:** removed the legacy `ChatFrame_OnEvent` hook (Classic-only). Whisper warn/block and chat mute use retail `ChatFrame_AddMessageEventFilter` instead, so the “filter may not work” message no longer appears on login.
+
 ### Removed
 
 - **WoW addon settings menu:** Toxic BlackList no longer appears under Esc → Options → AddOns. Open **Options** from the addon’s own window (gear icon), minimap button, or floating button.
+- **Legacy Classic UI hooks** that no longer exist in retail (old XML options panel, `ChatFrame_OnEvent`, `InviteByName`).
 
 ## [1.2.3] - 2026-04-19
 

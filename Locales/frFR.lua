@@ -176,7 +176,6 @@ L["PARTY_WARN_TITLE"] = "ATTENTION : un joueur sur la liste noire est dans votre
 -- Logs & minimap
 -- ---------------------------------------------------------------------------
 
-L["LOG_CHATFRAME_HOOK_MISSING"] = "ChatFrame_OnEvent introuvable ; le filtre des chuchotements peut échouer."
 L["LOG_ERROR_IN"] = "ERREUR dans %s :"
 L["REASON_SAVED_FOR"] = "Raison enregistrée pour %s"
 L["MINIMAP_TOOLTIP_LEFT_CLICK"] = "Clic gauche : %s"

@@ -176,7 +176,6 @@ L["PARTY_WARN_TITLE"] = "ATTENZIONE: c'è un giocatore in lista nera nel tuo gru
 -- Logs & minimap
 -- ---------------------------------------------------------------------------
 
-L["LOG_CHATFRAME_HOOK_MISSING"] = "ChatFrame_OnEvent non trovato; il filtro sussurri potrebbe non funzionare."
 L["LOG_ERROR_IN"] = "ERRORE in %s:"
 L["REASON_SAVED_FOR"] = "Motivo salvato per %s"
 L["MINIMAP_TOOLTIP_LEFT_CLICK"] = "Clic sinistro: %s"
