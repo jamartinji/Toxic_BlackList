@@ -176,7 +176,6 @@ L["PARTY_WARN_TITLE"] = "WARNING: Blacklisted player in your party!"
 -- Logs & minimap
 -- ---------------------------------------------------------------------------
 
-L["LOG_CHATFRAME_HOOK_MISSING"] = "ChatFrame_OnEvent not found; whisper filter may not work."
 L["LOG_ERROR_IN"] = "ERROR in %s:"
 L["REASON_SAVED_FOR"] = "Reason saved for %s"
 L["MINIMAP_TOOLTIP_LEFT_CLICK"] = "Left-click: %s"
@@ -256,9 +255,4 @@ L["SOUND_PRESET_TELL"] = "Tell / whisper notification"
 L["SOUND_PRESET_BNET_TOAST"] = "Battle.net toast"
 L["SOUND_PRESET_LOSS_OF_CONTROL"] = "Loss of control"
 
--- ---------------------------------------------------------------------------
--- Settings panel (Esc menu)
--- ---------------------------------------------------------------------------
-
-L["SETTINGS_HINT_OPTIONS_ONLY"] = "This panel only contains options. Open the list with /tbl or the game menu."
 L["OPT_ALERT_SOUND"] = "Alert sound"

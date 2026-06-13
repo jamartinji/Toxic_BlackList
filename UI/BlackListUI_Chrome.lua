@@ -309,7 +309,7 @@ function BlackList:ApplyFloatingQuickButtonSize()
 	end
 end
 
---- Shared controls: in-game options window and Esc -> AddOns panel.
+--- Shared controls: in-addon options window (floating button tab).
 function BlackList:InstallFloatingQuickOptions(parent, namePrefix)
 	if not parent or parent.blFloatingOptsInstalled then
 		return

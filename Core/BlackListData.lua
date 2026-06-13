@@ -810,6 +810,20 @@ function BlackList:EntryMatchesChatAuthor(p, authorRaw)
 	return pn == anorm and pr == ar
 end
 
+--- List index for a chat author string (Name or Name-Realm).
+function BlackList:GetIndexByChatAuthor(author)
+	if not author or author == "" then
+		return 0
+	end
+	for i = 1, self:GetNumBlackLists() do
+		local p = self:GetPlayerByIndex(i)
+		if p and self:EntryMatchesChatAuthor(p, author) then
+			return i
+		end
+	end
+	return 0
+end
+
 --- True if this author should be hidden in chat (per-entry muted flag).
 function BlackList:IsChatMutedAuthor(author)
 	if not author or author == "" then

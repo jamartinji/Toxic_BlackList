@@ -618,23 +618,52 @@ function BlackList:ScheduleNameplateProximityCheck(unitToken)
 	end
 end
 
-local Orig_ChatFrame_OnEvent;
-local Orig_InviteByName;
+local function shouldBlockMyInvite(name)
+	if not BlackList:GetOption("preventMyInvites", true) or not name or name == "" then
+		return false
+	end
+	local idx = BlackList:GetIndexByChatAuthor(name)
+	if idx <= 0 then
+		idx = BlackList:GetIndexByName(name)
+	end
+	if idx <= 0 then
+		return false
+	end
+	local pInv = BlackList:GetPlayerByIndex(idx)
+	local imsg = string.format(L["MSG_PREVENT_MY_INVITE"] or "%s %s — cannot invite.", name, L["IS_BLACKLISTED"])
+	BlackList:AddMessage(BlackList:FormatChatAlertFromFormatted(pInv, imsg, "social"), "styled")
+	return true
+end
 
--- Hooks onto the functions needed
+local function registerRetailInviteGuards()
+	if BlackList._retailInviteGuardsRegistered or not C_PartyInfo then
+		return
+	end
+	BlackList._retailInviteGuardsRegistered = true
+	if C_PartyInfo.InviteUnit then
+		local origInvite = C_PartyInfo.InviteUnit
+		C_PartyInfo.InviteUnit = function(name, ...)
+			if shouldBlockMyInvite(name) then
+				return
+			end
+			return origInvite(name, ...)
+		end
+	end
+	if C_PartyInfo.ConfirmInviteUnit then
+		local origConfirm = C_PartyInfo.ConfirmInviteUnit
+		C_PartyInfo.ConfirmInviteUnit = function(name, ...)
+			if shouldBlockMyInvite(name) then
+				return
+			end
+			return origConfirm(name, ...)
+		end
+	end
+end
+
+-- Hooks onto the functions needed (retail: chat filters + C_PartyInfo invite guards).
 function BlackList:HookFunctions()
 
-	if ChatFrame_OnEvent then
-		Orig_ChatFrame_OnEvent = ChatFrame_OnEvent;
-		ChatFrame_OnEvent = BlackList_ChatFrame_OnEvent;
-	else
-		BlackList:AddMessage(BlackList:FormatChatTagPlain(L["LOG_CHATFRAME_HOOK_MISSING"] or "ChatFrame_OnEvent not found; whisper filter may not work.", "systemWarn"), "styled")
-	end
-
-	if InviteByName then
-		Orig_InviteByName = InviteByName;
-		InviteByName = BlackList_InviteByName;
-	end
+	registerRetailInviteGuards()
 
 	self:RegisterChatMuteFilters();
 
@@ -650,90 +679,45 @@ function BlackList:RegisterChatMuteFilters()
 		return
 	end
 	self._chatMuteFiltersRegistered = true
-	local function filterMuted(_, event, msg, author, ...)
+
+	local function filterChatMessage(_, event, msg, author, ...)
 		if author and BlackList:IsChatMutedAuthor(author) then
 			return true
 		end
+		if event == "CHAT_MSG_WHISPER" and author and author ~= "" then
+			local idx = BlackList:GetIndexByChatAuthor(author)
+			if idx > 0 then
+				local player = BlackList:GetPlayerByIndex(idx)
+				if BlackList:GetOption("warnWhispers", true) then
+					local already_warned = false
+					for _, warnedname in pairs(Already_Warned_For["WHISPER"]) do
+						if author == warnedname then
+							already_warned = true
+							break
+						end
+					end
+					if not already_warned then
+						table.insert(Already_Warned_For["WHISPER"], author)
+						local wmsg = string.format(L["MSG_WHISPER_WARN"] or "%s %s and whispered you.", author, L["IS_BLACKLISTED"])
+						BlackList:AddMessage(BlackList:FormatChatAlertFromFormatted(player, wmsg, "social"), "styled")
+					end
+				end
+				if BlackList:GetOption("preventWhispers", true) then
+					return true
+				end
+			end
+		end
 		return false
 	end
+
 	local events = {
 		"CHAT_MSG_CHANNEL", "CHAT_MSG_SAY", "CHAT_MSG_YELL", "CHAT_MSG_WHISPER",
 		"CHAT_MSG_RAID", "CHAT_MSG_PARTY", "CHAT_MSG_GUILD", "CHAT_MSG_INSTANCE",
 		"CHAT_MSG_PARTY_LEADER", "CHAT_MSG_RAID_LEADER", "CHAT_MSG_RAID_WARNING",
 	}
 	for i = 1, #events do
-		ChatFrame_AddMessageEventFilter(events[i], filterMuted)
+		ChatFrame_AddMessageEventFilter(events[i], filterChatMessage)
 	end
-end
-
--- Hooked ChatFrame_OnEvent function (like SuperIgnore does)
-function BlackList_ChatFrame_OnEvent(event, ...)
-
-	-- Handle whisper blocking/warning
-	if event == "CHAT_MSG_WHISPER" then
-		local args = {...}
-		local name = args[2] -- In Retail, whisper sender name is the 2nd argument
-
-		if name and BlackList:IsChatMutedAuthor(name) then
-			return
-		end
-
-		if (BlackList:GetIndexByName(name) > 0) then
-			local player = BlackList:GetPlayerByIndex(BlackList:GetIndexByName(name));
-			
-			-- Always warn about whispers from blacklisted players (if enabled)
-			if (BlackList:GetOption("warnWhispers", true)) then
-				local alreadywarned = false;
-				
-				for key, warnedname in pairs(Already_Warned_For["WHISPER"]) do
-					if (name == warnedname) then
-						alreadywarned = true;
-					end
-				end
-				
-				if (not alreadywarned) then
-					table.insert(Already_Warned_For["WHISPER"], name);
-					local wmsg = string.format(L["MSG_WHISPER_WARN"] or "%s %s and whispered you.", name, L["IS_BLACKLISTED"])
-					BlackList:AddMessage(BlackList:FormatChatAlertFromFormatted(player, wmsg, "social"), "styled");
-				end
-			end
-			
-			-- Check if we should block whispers
-			if (BlackList:GetOption("preventWhispers", true)) then
-				-- Block the whisper by not calling the original handler (no auto-reply)
-				return;
-			end
-			
-			-- If not blocking, call the original handler to display the whisper
-			if Orig_ChatFrame_OnEvent then
-				Orig_ChatFrame_OnEvent(event, ...);
-			end
-			return;
-		end
-	end
-	
-	-- Call the original handler for non-blacklisted messages
-	if Orig_ChatFrame_OnEvent then
-		Orig_ChatFrame_OnEvent(event, ...);
-	end
-end
-
--- Hooked InviteByName function
-function BlackList_InviteByName(name)
-
-	if (BlackList:GetOption("preventMyInvites", true)) then
-		if (BlackList:GetIndexByName(name) > 0) then
-			local pInv = BlackList:GetPlayerByIndex(BlackList:GetIndexByName(name))
-			local imsg = string.format(L["MSG_PREVENT_MY_INVITE"] or "%s %s, preventing you from inviting them.", name, L["IS_BLACKLISTED"])
-			BlackList:AddMessage(BlackList:FormatChatAlertFromFormatted(pInv, imsg, "social"), "styled");
-			return;
-		end
-	end
-
-	if Orig_InviteByName then
-		Orig_InviteByName(name);
-	end
-
 end
 
 -- Registers slash cmds (SlashCmdList debe asignarse antes que SLASH_* en muchos clientes)

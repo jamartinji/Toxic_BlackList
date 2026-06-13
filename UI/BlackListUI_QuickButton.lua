@@ -3,7 +3,6 @@ local L = Addon.L
 local U = Addon.UI
 
 function BlackList:ShowOptions()
-	-- Use the new SuperIgnore-style options instead of the old XML frame
 	self:ShowNewOptions()
 end
 
@@ -33,16 +32,6 @@ function BlackList:GetOption(optionName, defaultValue)
 		return defaultValue;
 	end
 	return BlackListOptions[optionName];
-end
-
-function BlackList:UpdateOptionsUI()
-	-- Set default values if not set
-	getglobal("BlackListOptionsCheckButton2"):SetChecked(self:GetOption("warnTarget", true));
-	getglobal("BlackListOptionsCheckButton3"):SetChecked(self:GetOption("preventWhispers", true));
-	getglobal("BlackListOptionsCheckButton4"):SetChecked(self:GetOption("warnWhispers", true));
-	getglobal("BlackListOptionsCheckButton5"):SetChecked(self:GetOption("preventInvites", false));
-	getglobal("BlackListOptionsCheckButton6"):SetChecked(self:GetOption("preventMyInvites", true));
-	getglobal("BlackListOptionsCheckButton7"):SetChecked(self:GetOption("warnPartyJoin", true));
 end
 
 function BlackList:SaveFloatingQuickButtonPosition(btn)

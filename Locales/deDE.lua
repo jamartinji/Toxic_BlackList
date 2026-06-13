@@ -176,7 +176,6 @@ L["PARTY_WARN_TITLE"] = "WARNUNG: Spieler der schwarzen Liste in deiner Gruppe!"
 -- Logs & minimap
 -- ---------------------------------------------------------------------------
 
-L["LOG_CHATFRAME_HOOK_MISSING"] = "ChatFrame_OnEvent nicht gefunden; Flüsterfilter funktioniert evtl. nicht."
 L["LOG_ERROR_IN"] = "FEHLER in %s:"
 L["REASON_SAVED_FOR"] = "Grund gespeichert für %s"
 L["MINIMAP_TOOLTIP_LEFT_CLICK"] = "Linksklick: %s"
@@ -254,9 +253,4 @@ L["SOUND_PRESET_TELL"] = "Tell / whisper notification"
 L["SOUND_PRESET_BNET_TOAST"] = "Battle.net toast"
 L["SOUND_PRESET_LOSS_OF_CONTROL"] = "Loss of control"
 
--- ---------------------------------------------------------------------------
--- Settings panel (Esc menu)
--- ---------------------------------------------------------------------------
-
-L["SETTINGS_HINT_OPTIONS_ONLY"] = "Dieses Panel enthält nur Optionen. Die Liste öffnest du mit /tbl oder über das Menü."
 L["OPT_ALERT_SOUND"] = "Alert-Ton"

@@ -176,7 +176,6 @@ L["PARTY_WARN_TITLE"] = "ATTENZIONE: c'è un giocatore in lista nera nel tuo gru
 -- Logs & minimap
 -- ---------------------------------------------------------------------------
 
-L["LOG_CHATFRAME_HOOK_MISSING"] = "ChatFrame_OnEvent non trovato; il filtro sussurri potrebbe non funzionare."
 L["LOG_ERROR_IN"] = "ERRORE in %s:"
 L["REASON_SAVED_FOR"] = "Motivo salvato per %s"
 L["MINIMAP_TOOLTIP_LEFT_CLICK"] = "Clic sinistro: %s"
@@ -254,9 +253,4 @@ L["SOUND_PRESET_TELL"] = "Notifica sussurro"
 L["SOUND_PRESET_BNET_TOAST"] = "Notifica Battle.net"
 L["SOUND_PRESET_LOSS_OF_CONTROL"] = "Perdita di controllo"
 
--- ---------------------------------------------------------------------------
--- Settings panel (Esc menu)
--- ---------------------------------------------------------------------------
-
-L["SETTINGS_HINT_OPTIONS_ONLY"] = "Questo pannello contiene solo le opzioni. L'elenco si apre con /tbl o dal menu."
 L["OPT_ALERT_SOUND"] = "Suono di avviso"

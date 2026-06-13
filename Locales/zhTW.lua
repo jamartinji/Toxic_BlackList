@@ -176,7 +176,6 @@ L["PARTY_WARN_TITLE"] = "警告：隊伍中有黑名單玩家！"
 -- Logs & minimap
 -- ---------------------------------------------------------------------------
 
-L["LOG_CHATFRAME_HOOK_MISSING"] = "找不到 ChatFrame_OnEvent，悄悄話過濾可能無效。"
 L["LOG_ERROR_IN"] = "%s 發生錯誤："
 L["REASON_SAVED_FOR"] = "已儲存 %s 的原因"
 L["MINIMAP_TOOLTIP_LEFT_CLICK"] = "左鍵：%s"
@@ -254,9 +253,4 @@ L["SOUND_PRESET_TELL"] = "Tell / whisper notification"
 L["SOUND_PRESET_BNET_TOAST"] = "Battle.net toast"
 L["SOUND_PRESET_LOSS_OF_CONTROL"] = "Loss of control"
 
--- ---------------------------------------------------------------------------
--- Settings panel (Esc menu)
--- ---------------------------------------------------------------------------
-
-L["SETTINGS_HINT_OPTIONS_ONLY"] = "此面板僅包含選項。使用 /tbl 或選單開啟清單。"
 L["OPT_ALERT_SOUND"] = "警示音效"
